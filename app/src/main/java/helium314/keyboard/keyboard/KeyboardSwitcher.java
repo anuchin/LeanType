@@ -37,6 +37,7 @@ import helium314.keyboard.keyboard.internal.KeyboardState;
 import helium314.keyboard.latin.InputView;
 import helium314.keyboard.latin.KeyboardWrapperView;
 import helium314.keyboard.latin.LatinIME;
+import helium314.keyboard.latin.FloatingKeyboardManager;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
@@ -787,6 +788,10 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         prefs.registerOnSharedPreferenceChangeListener(mClipboardHistoryView);
         PointerTracker.switchTo(mKeyboardView);
         return mCurrentInputView;
+    }
+
+    public FloatingKeyboardManager getFloatingKeyboardManager() {
+        return mLatinIME.getFloatingKeyboardManager();
     }
 
     public int getKeyboardShiftMode() {

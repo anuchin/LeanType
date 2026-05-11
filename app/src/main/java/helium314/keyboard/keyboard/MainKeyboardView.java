@@ -25,6 +25,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -38,6 +39,7 @@ import helium314.keyboard.keyboard.internal.GestureFloatingTextDrawingPreview;
 import helium314.keyboard.keyboard.internal.GestureTrailsDrawingPreview;
 import helium314.keyboard.keyboard.internal.KeyDrawParams;
 import helium314.keyboard.keyboard.internal.KeyPreviewChoreographer;
+import helium314.keyboard.latin.FloatingKeyboardManager;
 import helium314.keyboard.keyboard.internal.KeyPreviewDrawParams;
 import helium314.keyboard.keyboard.internal.KeyPreviewView;
 import helium314.keyboard.keyboard.internal.PopupKeySpec;
@@ -360,6 +362,16 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
     }
 
     private void installPreviewPlacerView() {
+        if (KeyboardSwitcher.getInstance().getFloatingKeyboardManager().isFloating()) {
+            final FrameLayout overlayRoot = KeyboardSwitcher.getInstance().getFloatingKeyboardManager().getOverlayRoot();
+            if (overlayRoot != null) {
+                if (mDrawingPreviewPlacerView.getParent() != null) {
+                    ((ViewGroup) mDrawingPreviewPlacerView.getParent()).removeView(mDrawingPreviewPlacerView);
+                }
+                overlayRoot.addView(mDrawingPreviewPlacerView);
+                return;
+            }
+        }
         final View rootView = getRootView();
         if (rootView == null) {
             Log.w(TAG, "Cannot find root view");

@@ -35,9 +35,11 @@ import helium314.keyboard.keyboard.Key;
 import helium314.keyboard.keyboard.KeyDetector;
 import helium314.keyboard.keyboard.Keyboard;
 import helium314.keyboard.keyboard.KeyboardView;
+import helium314.keyboard.keyboard.KeyboardSwitcher;
 import helium314.keyboard.keyboard.PopupKeysKeyboard;
 import helium314.keyboard.keyboard.PopupKeysKeyboardView;
 import helium314.keyboard.keyboard.PopupKeysPanel;
+import helium314.keyboard.latin.FloatingKeyboardManager;
 import helium314.keyboard.keyboard.internal.PopupKeySpec;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.common.CoordinateUtils;
@@ -138,6 +140,16 @@ public final class EmojiPageKeyboardView extends KeyboardView implements
     }
 
     private void installPopupKeysPlacerView(final boolean uninstall) {
+        if (!uninstall && KeyboardSwitcher.getInstance().getFloatingKeyboardManager().isFloating()) {
+            final FrameLayout overlayRoot = KeyboardSwitcher.getInstance().getFloatingKeyboardManager().getOverlayRoot();
+            if (overlayRoot != null) {
+                if (mPopupKeysPlacerView.getParent() != null) {
+                    ((ViewGroup) mPopupKeysPlacerView.getParent()).removeView(mPopupKeysPlacerView);
+                }
+                overlayRoot.addView(mPopupKeysPlacerView);
+                return;
+            }
+        }
         final View rootView = getRootView();
         if (rootView == null) {
             Log.w(TAG, "Cannot find root view");

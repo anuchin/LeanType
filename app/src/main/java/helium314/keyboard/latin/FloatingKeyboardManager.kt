@@ -49,7 +49,8 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         DeviceProtectedUtils.getSharedPreferences(context, PREFS_NAME)
     }
 
-    private var overlayRoot: FrameLayout? = null
+    var overlayRoot: FrameLayout? = null
+        private set
     private var windowManager: WindowManager? = null
     private var windowParams: WindowManager.LayoutParams? = null
     private var savedParent: ViewGroup? = null
@@ -166,6 +167,10 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         }
 
         isFloating = true
+        
+        // Manually trigger reparenting of the current input view into the overlay.
+        // reloadKeyboard() alone won't trigger setInputView() if the theme hasn't changed.
+        latinIME.mInputView?.let { onInputViewRecreated(it) }
 
         // Set the floating width override so keyboard keys re-measure at this width
         ResourceUtils.setFloatingKeyboardWidth(floatingWidth)
