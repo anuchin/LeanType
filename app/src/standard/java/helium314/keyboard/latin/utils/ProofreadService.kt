@@ -99,7 +99,8 @@ class ProofreadService(private val context: Context) {
 
     private fun fetchGeminiModels(): List<String> {
         val apiKey = getApiKey() ?: return AVAILABLE_MODELS
-        val url = URL("https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey")
+        val urlString = context.getString(R.string.config_gemini_models_endpoint, apiKey)
+        val url = URL(urlString)
         val connection = url.openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
@@ -129,7 +130,7 @@ class ProofreadService(private val context: Context) {
 
     private fun fetchGroqModels(): List<String> {
         val token = getGroqToken() ?: return GroqModels.AVAILABLE_MODELS
-        val url = URL("https://api.groq.com/openai/v1/models")
+        val url = URL(context.getString(R.string.config_groq_models_endpoint))
         val connection = url.openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
@@ -221,9 +222,9 @@ class ProofreadService(private val context: Context) {
         val provider = getProvider()
         // If provider is GROQ, always use GROQ_ENDPOINT. 
         // We don't want a saved OpenAI endpoint to override it.
-        if (provider == AIProvider.GROQ) return GROQ_ENDPOINT
+        if (provider == AIProvider.GROQ) return context.getString(R.string.config_groq_chat_endpoint)
         
-        val defaultEndpoint = DEFAULT_HF_ENDPOINT
+        val defaultEndpoint = context.getString(R.string.config_default_hf_endpoint)
         return securePrefs.getString(KEY_HF_ENDPOINT, defaultEndpoint) ?: defaultEndpoint
     }
 
@@ -571,8 +572,6 @@ class ProofreadService(private val context: Context) {
         private const val KEY_TRANSLATE_GROQ_MODEL = "translate_groq_model"
         private const val DEFAULT_TARGET_LANGUAGE = "English"
         private const val DEFAULT_HF_MODEL = "gpt-4o-mini"
-        private const val DEFAULT_HF_ENDPOINT = "https://api.openai.com/v1/chat/completions"
-        private const val GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
         
         val AVAILABLE_MODELS = listOf(
             "gemini-2.5-flash",

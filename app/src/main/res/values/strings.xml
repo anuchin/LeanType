@@ -424,6 +424,11 @@
     <string name="huggingface_endpoint_title">API Endpoint</string>
     <string name="huggingface_endpoint_summary">API endpoint URL</string>
     <string name="huggingface_endpoint_hint">https://api.groq.com/openai/v1/chat/completions</string>
+
+    <string name="config_gemini_models_endpoint" translatable="false">https://generativelanguage.googleapis.com/v1beta/models?key=%1$s</string>
+    <string name="config_groq_models_endpoint" translatable="false">https://api.groq.com/openai/v1/models</string>
+    <string name="config_default_hf_endpoint" translatable="false">https://api.openai.com/v1/chat/completions</string>
+    <string name="config_groq_chat_endpoint" translatable="false">https://api.groq.com/openai/v1/chat/completions</string>
     <string name="offline_keep_model_loaded_title">Keep model loaded</string>
     <string name="offline_keep_model_loaded_summary">Keep the offline AI model in memory to avoid reloading delay (uses more RAM)</string>
     <!-- Translation feature strings -->
