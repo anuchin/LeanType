@@ -31,6 +31,7 @@ import helium314.keyboard.latin.settings.Defaults;
 import helium314.keyboard.latin.settings.Settings;
 import helium314.keyboard.latin.settings.SettingsValuesForSuggestion;
 import helium314.keyboard.latin.utils.KtxKt;
+import helium314.keyboard.latin.utils.ScriptUtils;
 import helium314.keyboard.latin.utils.SubtypeSettings;
 import helium314.keyboard.latin.utils.SubtypeUtilsAdditional;
 import helium314.keyboard.latin.utils.SuggestionResults;
@@ -202,7 +203,7 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
             // but creating a global one if not existing should be fine too
             final EditorInfo editorInfo = new EditorInfo();
             editorInfo.inputType = InputType.TYPE_CLASS_TEXT;
-            Settings.getInstance().loadSettings(this, locale, new InputAttributes(editorInfo, false, getPackageName()));
+            Settings.getInstance().loadSettings(this, locale, new InputAttributes(editorInfo, false, getPackageName()), ScriptUtils.SCRIPT_UNKNOWN);
         }
         final String mainLayoutName = SubtypeSettings.INSTANCE.getMatchingMainLayoutNameForLocale(locale);
         final InputMethodSubtype subtype = SubtypeUtilsAdditional.INSTANCE.createDummyAdditionalSubtype(locale, mainLayoutName);

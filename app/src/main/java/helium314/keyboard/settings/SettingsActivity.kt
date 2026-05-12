@@ -68,7 +68,7 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
         super.onCreate(savedInstanceState)
         if (Settings.getValues() == null) {
             val inputAttributes = InputAttributes(EditorInfo(), false, packageName)
-            Settings.getInstance().loadSettings(this, resources.configuration.locale(), inputAttributes)
+            Settings.getInstance().loadSettings(this, resources.configuration.locale(), inputAttributes, helium314.keyboard.latin.utils.ScriptUtils.SCRIPT_UNKNOWN)
         }
         ExecutorUtils.getBackgroundExecutor(ExecutorUtils.KEYBOARD).execute { cleanUnusedMainDicts(this) }
         crashReportFiles.value = findCrashReports(!BuildConfig.DEBUG && !DebugFlags.DEBUG_ENABLED)

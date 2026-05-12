@@ -37,6 +37,7 @@ import helium314.keyboard.latin.utils.LayoutType;
 import helium314.keyboard.latin.utils.Log;
 import helium314.keyboard.latin.utils.ResourceUtils;
 import helium314.keyboard.latin.utils.RunInLocaleKt;
+import helium314.keyboard.latin.utils.ScriptUtils;
 import helium314.keyboard.latin.utils.StatsUtils;
 import helium314.keyboard.latin.utils.SubtypeSettings;
 import helium314.keyboard.latin.utils.ToolbarKey;
@@ -276,7 +277,7 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
                 return;
             }
             ToolbarUtilsKt.clearCustomToolbarKeyCodes();
-            loadSettings(mContext, mSettingsValues.mLocale, mSettingsValues.mInputAttributes);
+            loadSettings(mContext, mSettingsValues.mLocale, mSettingsValues.mInputAttributes, mSettingsValues.mCurrentKeyboardScript);
             StatsUtils.onLoadSettings(mSettingsValues);
         } finally {
             mSettingsValuesLock.unlock();
@@ -295,18 +296,18 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
             return;
         final Locale locale = ConfigurationCompatKt.locale(context.getResources().getConfiguration());
         final InputAttributes inputAttributes = new InputAttributes(new EditorInfo(), false, context.getPackageName());
-        loadSettings(context, locale, inputAttributes);
+        loadSettings(context, locale, inputAttributes, ScriptUtils.SCRIPT_UNKNOWN);
     }
 
     public void loadSettings(final Context context, final Locale locale,
-            @NonNull final InputAttributes inputAttributes) {
+            @NonNull final InputAttributes inputAttributes, final String currentKeyboardScript) {
         mSettingsValuesLock.lock();
         mContext = context;
         try {
             final SharedPreferences prefs = mPrefs;
             Log.i(TAG, "loadSettings");
             mSettingsValues = RunInLocaleKt.runInLocale(context, locale,
-                    ctx -> new SettingsValues(ctx, prefs, ctx.getResources(), inputAttributes));
+                    ctx -> new SettingsValues(ctx, prefs, ctx.getResources(), inputAttributes, currentKeyboardScript));
         } finally {
             mSettingsValuesLock.unlock();
         }

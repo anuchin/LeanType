@@ -48,6 +48,7 @@ public class SettingsValues {
         public final long mDoubleSpacePeriodTimeout;
         // From configuration:
         public final Locale mLocale;
+        public final String mCurrentKeyboardScript;
         public final boolean mHasHardwareKeyboard;
         public final int mDisplayOrientation;
         // From preferences
@@ -172,8 +173,9 @@ public class SettingsValues {
         // creation of Colors and SpacingAndPunctuations are the slowest parts in here,
         // but still ok
         public SettingsValues(final Context context, final SharedPreferences prefs, final Resources res,
-                        @NonNull final InputAttributes inputAttributes) {
+                        @NonNull final InputAttributes inputAttributes, final String currentKeyboardScript) {
                 mLocale = ConfigurationCompatKt.locale(res.getConfiguration());
+                mCurrentKeyboardScript = currentKeyboardScript;
                 mDisplayOrientation = res.getConfiguration().orientation;
                 final InputMethodSubtype selectedSubtype = SubtypeSettings.INSTANCE.getSelectedSubtype(prefs);
 
@@ -518,6 +520,8 @@ public class SettingsValues {
                 sb.append("" + mKeyLongpressTimeout);
                 sb.append("\n   mLocale = ");
                 sb.append("" + mLocale);
+                sb.append("\n   mCurrentKeyboardScript = ");
+                sb.append("" + mCurrentKeyboardScript);
                 sb.append("\n   mInputAttributes = ");
                 sb.append("" + mInputAttributes);
                 sb.append("\n   mKeypressVibrationDuration = ");

@@ -91,7 +91,6 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
             inputLogic.onCodeInput(
                 settings.current, event,
                 keyboardSwitcher.getKeyboardShiftMode(), // TODO: this is not necessarily correct for a hardware keyboard right now
-                keyboardSwitcher.getCurrentKeyboardScript(),
                 latinIME.mHandler
             )
             return true
@@ -337,7 +336,7 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         inputLogic.finishInput()
         val newPosition = connection.expectedSelectionStart + moveSteps
         connection.setSelection(newPosition, newPosition)
-        inputLogic.restartSuggestionsOnWordTouchedByCursor(settings.current, keyboardSwitcher.currentKeyboardScript)
+        inputLogic.restartSuggestionsOnWordTouchedByCursor(settings.current)
         return true
     }
 

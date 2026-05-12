@@ -112,7 +112,7 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         if (themeUpdated) {
             Settings settings = Settings.getInstance();
             settings.loadSettings(displayContext, settings.getCurrent().mLocale,
-                    settings.getCurrent().mInputAttributes);
+                    settings.getCurrent().mInputAttributes, settings.getCurrent().mCurrentKeyboardScript);
             if (mKeyboardView != null)
                 mLatinIME.setInputView(onCreateInputView(displayContext, mIsHardwareAcceleratedDrawingEnabled));
         }
@@ -759,7 +759,7 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         if (mThemeNeedsReload) // necessary in some cases (e.g. theme switch) when mThemeNeedsReload is set
                                // before first keyboard load
             Settings.getInstance().loadSettings(displayContext, Settings.getValues().mLocale,
-                    Settings.getValues().mInputAttributes);
+                    Settings.getValues().mInputAttributes, Settings.getValues().mCurrentKeyboardScript);
 
         updateKeyboardThemeAndContextThemeWrapper(displayContext, KeyboardTheme.getKeyboardTheme(displayContext));
         mCurrentInputView = (InputView) LayoutInflater.from(mThemeContext).inflate(R.layout.input_view, null);
