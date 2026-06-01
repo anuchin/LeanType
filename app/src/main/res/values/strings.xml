@@ -319,6 +319,10 @@
     <string name="number_row_summary">Always show number row</string>
     <!-- Title of the setting to replace the top row in symbols layout with number row -->
     <string name="number_row_in_symbols">Show number row in symbols view</string>
+    <!-- Title of the setting to replace the top row in symbols layout with number row -->
+    <string name="compact_number_row_in_symbols">Compact symbols number row</string>
+    <!-- Description of the setting to replace the top row in symbols layout with number row -->
+    <string name="compact_number_row_in_symbols_summary">Replace first row of symbols instead of adding a separate row</string>
     <!-- Title of the setting to localize number row -->
     <string name="localized_number_row">Localize number row</string>
     <!-- Description of the settings to localize number row -->
