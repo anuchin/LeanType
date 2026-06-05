@@ -624,23 +624,31 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
      * keys; the fallback to text input handles any unsupported characters.
      */
     private fun charToKeyCode(c: Int): Int = when (c) {
-        in 'a'..'z' -> KeyEvent.KEYCODE_A + (c - 'a'.code)
-        in 'A'..'Z' -> KeyEvent.KEYCODE_A + (c - 'A'.code)
-        in '0'..'9' -> KeyEvent.KEYCODE_0 + (c - '0'.code)
-        ' ' -> KeyEvent.KEYCODE_SPACE
-        '\n' -> KeyEvent.KEYCODE_ENTER
-        '\t' -> KeyEvent.KEYCODE_TAB
-        '.' -> KeyEvent.KEYCODE_PERIOD
-        ',' -> KeyEvent.KEYCODE_COMMA
-        ';' -> KeyEvent.KEYCODE_SEMICOLON
-        '\'' -> KeyEvent.KEYCODE_APOSTROPHE
-        '/' -> KeyEvent.KEYCODE_SLASH
-        '\\' -> KeyEvent.KEYCODE_BACKSLASH
-        '-' -> KeyEvent.KEYCODE_MINUS
-        '=' -> KeyEvent.KEYCODE_EQUALS
-        '[' -> KeyEvent.KEYCODE_LEFT_BRACKET
-        ']' -> KeyEvent.KEYCODE_RIGHT_BRACKET
-        '`' -> KeyEvent.KEYCODE_GRAVE
+        'a'.code, 'b'.code, 'c'.code, 'd'.code, 'e'.code, 'f'.code,
+        'g'.code, 'h'.code, 'i'.code, 'j'.code, 'k'.code, 'l'.code,
+        'm'.code, 'n'.code, 'o'.code, 'p'.code, 'q'.code, 'r'.code,
+        's'.code, 't'.code, 'u'.code, 'v'.code, 'w'.code, 'x'.code,
+        'y'.code, 'z'.code -> KeyEvent.KEYCODE_A + (c - 'a'.code)
+        'A'.code, 'B'.code, 'C'.code, 'D'.code, 'E'.code, 'F'.code,
+        'G'.code, 'H'.code, 'I'.code, 'J'.code, 'K'.code, 'L'.code,
+        'M'.code, 'N'.code, 'O'.code, 'P'.code, 'Q'.code, 'R'.code,
+        'S'.code, 'T'.code, 'U'.code, 'V'.code, 'W'.code, 'X'.code,
+        'Y'.code, 'Z'.code -> KeyEvent.KEYCODE_A + (c - 'A'.code)
+        in '0'.code..'9'.code -> KeyEvent.KEYCODE_0 + (c - '0'.code)
+        ' '.code -> KeyEvent.KEYCODE_SPACE
+        '\n'.code -> KeyEvent.KEYCODE_ENTER
+        '\t'.code -> KeyEvent.KEYCODE_TAB
+        '.'.code -> KeyEvent.KEYCODE_PERIOD
+        ','.code -> KeyEvent.KEYCODE_COMMA
+        ';'.code -> KeyEvent.KEYCODE_SEMICOLON
+        '\''.code -> KeyEvent.KEYCODE_APOSTROPHE
+        '/'.code -> KeyEvent.KEYCODE_SLASH
+        '\\'.code -> KeyEvent.KEYCODE_BACKSLASH
+        '-'.code -> KeyEvent.KEYCODE_MINUS
+        '='.code -> KeyEvent.KEYCODE_EQUALS
+        '['.code -> KeyEvent.KEYCODE_LEFT_BRACKET
+        ']'.code -> KeyEvent.KEYCODE_RIGHT_BRACKET
+        '`'.code -> KeyEvent.KEYCODE_GRAVE
         else -> KeyEvent.KEYCODE_UNKNOWN
     }
 }
