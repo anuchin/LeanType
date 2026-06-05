@@ -195,7 +195,7 @@ public class LatinIME extends InputMethodService implements
         return mUtilityKeyBar;
     }
 
-    void setUtilityKeyBar(UtilityKeyBar bar) {
+    public void setUtilityKeyBar(UtilityKeyBar bar) {
         mUtilityKeyBar = bar;
     }
 
