@@ -4,6 +4,7 @@ package helium314.keyboard.keyboard
 import android.os.SystemClock
 import android.text.InputType
 import android.util.SparseArray
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.inputmethod.InputMethodSubtype
 import androidx.core.util.forEach
@@ -109,7 +110,9 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         // what makes "tap Ctrl, then tap c" send Ctrl+C to the app.
         val utilityBar = latinIME.utilityKeyBar
         if (utilityBar != null && utilityBar.hasActiveModifiers()) {
-            val keyCode = KeyEvent.keyCodeForChar(primaryCode)
+            val kcm = KeyCharacterMap.getInstance(KeyCharacterMap.VIRTUAL_KEYBOARD)
+            val events = kcm.getEvents(charArrayOf(primaryCode.toChar()))
+            val keyCode = events?.firstOrNull()?.keyCode ?: KeyEvent.KEYCODE_UNKNOWN
             if (keyCode != KeyEvent.KEYCODE_UNKNOWN) {
                 val combinedMeta = metaState or utilityBar.getMetaState()
                 val eventTime = SystemClock.uptimeMillis()
