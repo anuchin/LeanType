@@ -16,6 +16,15 @@
         android:id="@+id/strip_container"
         layout="@layout/strip_container" />
 
+    <!-- Utility bar (Ctrl/Shift/Alt/Esc/Tab/arrows) above the QWERTY rows.
+         The UtilityKeyBar view is added programmatically in
+         KeyboardSwitcher.onCreateInputView() so it can be hidden via
+         View.GONE when the setting is disabled. -->
+    <FrameLayout
+        android:id="@+id/utility_key_bar_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
     <!-- To ensure that key preview popup is correctly placed when the current system locale is
          one of RTL locales, layoutDirection="ltr" is needed in the SDK version 17+. -->
     <helium314.keyboard.latin.KeyboardWrapperView

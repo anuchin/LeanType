@@ -38,6 +38,7 @@ import helium314.keyboard.latin.InputView;
 import helium314.keyboard.latin.KeyboardWrapperView;
 import helium314.keyboard.latin.LatinIME;
 import helium314.keyboard.latin.FloatingKeyboardManager;
+import helium314.keyboard.latin.UtilityKeyBar;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
@@ -843,6 +844,23 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         mClipboardStripScrollView = mCurrentInputView.findViewById(R.id.clipboard_strip_scroll_view);
         mSuggestionStripView = mCurrentInputView.findViewById(R.id.suggestion_strip_view);
         mStripContainer = mCurrentInputView.findViewById(R.id.strip_container);
+
+        // Wire up the utility key bar (Ctrl/Shift/Alt/Esc/Tab/arrows) above
+        // the QWERTY rows. Created programmatically and stored on LatinIME
+        // so KeyboardActionListenerImpl can query its modifier state.
+        final ViewGroup utilityBarContainer = mCurrentInputView.findViewById(R.id.utility_key_bar_container);
+        if (utilityBarContainer != null) {
+            // Remove any previously-added bar (input view can be recreated).
+            utilityBarContainer.removeAllViews();
+            if (Settings.getValues().mShowUtilityBar) {
+                final UtilityKeyBar utilityBar = new UtilityKeyBar(mLatinIME, mLatinIME);
+                utilityBarContainer.addView(utilityBar);
+                mLatinIME.setUtilityKeyBar(utilityBar);
+            } else {
+                utilityBarContainer.setVisibility(View.GONE);
+                mLatinIME.setUtilityKeyBar(null);
+            }
+        }
 
         prefs.registerOnSharedPreferenceChangeListener(mSuggestionStripView);
         prefs.registerOnSharedPreferenceChangeListener(mClipboardHistoryView);

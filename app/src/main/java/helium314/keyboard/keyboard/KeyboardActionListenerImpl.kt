@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.keyboard
 
+import android.os.SystemClock
 import android.text.InputType
 import android.util.SparseArray
 import android.view.KeyEvent
@@ -102,6 +103,23 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
     }
 
     override fun onCodeInput(primaryCode: Int, x: Int, y: Int, isKeyRepeat: Boolean) {
+        // If the utility key bar has any active modifier, intercept the next
+        // character key press and route it as a real KeyEvent (with the
+        // combined meta state) instead of committing plain text. This is
+        // what makes "tap Ctrl, then tap c" send Ctrl+C to the app.
+        val utilityBar = latinIME.utilityKeyBar
+        if (utilityBar != null && utilityBar.hasActiveModifiers()) {
+            val keyCode = KeyEvent.keyCodeForChar(primaryCode)
+            if (keyCode != KeyEvent.KEYCODE_UNKNOWN) {
+                val combinedMeta = metaState or utilityBar.getMetaState()
+                val eventTime = SystemClock.uptimeMillis()
+                connection.sendKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0, combinedMeta))
+                connection.sendKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0, combinedMeta))
+                utilityBar.onModifierKeySent()
+                return
+            }
+        }
+
         when (primaryCode) {
             KeyCode.TOGGLE_AUTOCORRECT -> return settings.toggleAutoCorrect()
             KeyCode.TOGGLE_INCOGNITO_MODE -> {

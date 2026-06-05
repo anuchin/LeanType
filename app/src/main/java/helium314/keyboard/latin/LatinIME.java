@@ -189,6 +189,16 @@ public class LatinIME extends InputMethodService implements
         return mFloatingKeyboardManager;
     }
 
+    private UtilityKeyBar mUtilityKeyBar;
+
+    public UtilityKeyBar getUtilityKeyBar() {
+        return mUtilityKeyBar;
+    }
+
+    void setUtilityKeyBar(UtilityKeyBar bar) {
+        mUtilityKeyBar = bar;
+    }
+
     public static final class UIHandler extends LeakGuardHandlerWrapper<LatinIME> {
         private static final int MSG_UPDATE_SHIFT_STATE = 0;
         private static final int MSG_PENDING_IMS_CALLBACK = 1;

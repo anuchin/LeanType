@@ -10,6 +10,7 @@ import android.os.Build
 import android.provider.Settings as AndroidSettings
 import android.content.Intent
 import android.net.Uri
+import android.util.DisplayMetrics
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -25,6 +26,7 @@ import helium314.keyboard.latin.settings.Settings
 import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.ResourceUtils
 import helium314.keyboard.latin.utils.DeviceProtectedUtils
+import kotlin.math.max
 
 /**
  * Manages the floating keyboard by reparenting the existing main_keyboard_frame
@@ -32,6 +34,11 @@ import helium314.keyboard.latin.utils.DeviceProtectedUtils
  *
  * Key sizes are dynamically adjusted by setting a floating width override in
  * ResourceUtils before triggering a keyboard reload.
+ *
+ * The floating keyboard can be resized by the user via drag handles on the
+ * bottom corners of the overlay. The size is stored as a fraction of the
+ * current screen width so it scales correctly across orientation changes
+ * and different displays.
  */
 class FloatingKeyboardManager(private val context: Context, private val latinIME: LatinIME) {
 
@@ -40,9 +47,15 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         private const val PREFS_NAME = "floating_keyboard_prefs"
         private const val PREF_X = "floating_x"
         private const val PREF_Y = "floating_y"
-        private const val FLOATING_WIDTH_FRACTION = 0.75f
+        private const val PREF_WIDTH_FRACTION = "floating_width_fraction"
+        private const val DEFAULT_WIDTH_FRACTION = 0.75f
+        private const val MIN_WIDTH_FRACTION = 0.4f
+        private const val MAX_WIDTH_FRACTION = 1.0f
+        private const val MIN_WIDTH_DP = 200
         private const val HEADER_HEIGHT_DP = 28
         private const val CORNER_RADIUS_DP = 16f
+        private const val RESIZE_HANDLE_SIZE_DP = 28
+        private const val RESIZE_HANDLE_MARGIN_DP = 4
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -60,6 +73,15 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
     // Touch tracking for drag
     private var initialTouchX = 0f
     private var initialTouchY = 0f
+
+    // Touch tracking for resize
+    private var resizeInitialWidth = 0
+    private var resizeInitialWindowX = 0
+    private var resizeInitialWindowRight = 0
+
+    // Current width fraction of the screen width (clamped to [MIN, MAX]).
+    // Persisted across configuration changes and floating mode sessions.
+    private var widthFraction: Float = DEFAULT_WIDTH_FRACTION
 
     var isFloating = false
         private set
@@ -79,11 +101,15 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
     fun show() {
         if (!canDrawOverlays() || isFloating) return
 
+        // Load the persisted width fraction (or use the default).
+        widthFraction = prefs.getFloat(PREF_WIDTH_FRACTION, DEFAULT_WIDTH_FRACTION)
+            .coerceIn(MIN_WIDTH_FRACTION, MAX_WIDTH_FRACTION)
+
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         // Calculate the floating keyboard width
         val dm = context.resources.displayMetrics
-        val floatingWidth = (dm.widthPixels * FLOATING_WIDTH_FRACTION).toInt()
+        val floatingWidth = calculateFloatingWidth(dm.widthPixels)
 
         // Get theme colors
         val colors = Settings.getValues().mColors
@@ -130,6 +156,15 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
 
         contentContainer.addView(headerBar)
         overlayRoot!!.addView(contentContainer)
+
+        // Add resize handles on the bottom corners of the overlay. They are
+        // children of overlayRoot (siblings of the content container) and
+        // overlap the bottom corners of the keyboard. overlayRoot has
+        // clipToOutline = true, so they are clipped to the rounded corners.
+        val resizeHandleLeft = createResizeHandle(density, textColor, isLeft = true)
+        val resizeHandleRight = createResizeHandle(density, textColor, isLeft = false)
+        overlayRoot!!.addView(resizeHandleLeft)
+        overlayRoot!!.addView(resizeHandleRight)
 
         // Calculate window position
         val savedX = prefs.getInt(PREF_X, -1)
@@ -211,6 +246,11 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         savedParentIndex = -1
         isFloating = false
 
+        // Clear any sticky modifier state on the utility bar so a locked
+        // Ctrl doesn't fire on the next character typed into the docked
+        // keyboard.
+        latinIME.utilityKeyBar?.clearState()
+
         // Show the IME window again
         latinIME.onFloatingKeyboardHidden(showDockedKeyboard)
 
@@ -236,6 +276,12 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
      * Called from LatinIME.setInputView() when the input view is recreated
      * (e.g., theme change, orientation change). If floating mode is active,
      * we need to reparent the new keyboard views into the existing overlay.
+     *
+     * Also handles resizing the floating overlay to match the current display
+     * width. The width is recalculated from the current display metrics so
+     * that configuration changes (e.g. landscape -> portrait) cause the
+     * overlay window and the reparented keyboard to scale down/up to match
+     * the new screen size.
      */
     fun onInputViewRecreated(newInputView: View) {
         if (!isFloating) return
@@ -259,14 +305,41 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
             contentContainer.removeViewAt(1)
         }
 
-        // Reparent new keyboard frame
-        val floatingWidth = ResourceUtils.getFloatingKeyboardWidth()
+        // Recalculate the floating width from the current display metrics so the
+        // overlay window and the keyboard frame match the current screen size
+        // (e.g. after an orientation change landscape -> portrait). The
+        // user-configured width fraction is preserved across rotations.
+        val dm = context.resources.displayMetrics
+        val newFloatingWidth = calculateFloatingWidth(dm.widthPixels)
+        val previousFloatingWidth = ResourceUtils.getFloatingKeyboardWidth()
+        val widthChanged = newFloatingWidth != previousFloatingWidth
+        if (widthChanged) {
+            Log.i(TAG, "Floating keyboard width changed: $previousFloatingWidth -> $newFloatingWidth")
+            ResourceUtils.setFloatingKeyboardWidth(newFloatingWidth)
+            windowParams?.let { lp ->
+                lp.width = newFloatingWidth
+                try {
+                    windowManager?.updateViewLayout(overlayRoot, lp)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to update overlay width on input view recreation", e)
+                }
+            }
+        }
+
+        // Reparent new keyboard frame at the (possibly updated) floating width
         newParent.removeView(newMainKeyboardFrame)
         newMainKeyboardFrame.layoutParams = LinearLayout.LayoutParams(
-            if (floatingWidth > 0) floatingWidth else LinearLayout.LayoutParams.MATCH_PARENT,
+            if (newFloatingWidth > 0) newFloatingWidth else LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
         contentContainer.addView(newMainKeyboardFrame)
+
+        // If the floating width changed, reload the keyboard so the keys re-measure
+        // at the new width. Without this, keys keep the sizes from the previous
+        // orientation and the keyboard looks wrong.
+        if (widthChanged) {
+            KeyboardSwitcher.getInstance().reloadKeyboard()
+        }
     }
 
     /**
@@ -286,6 +359,135 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
     }
 
     // ── Private helpers ──────────────────────────────────────────────────
+
+    private fun calculateFloatingWidth(screenWidthPx: Int): Int =
+        (screenWidthPx * widthFraction).toInt()
+
+    private fun calculateMinWidth(dm: DisplayMetrics): Int {
+        val minDpPx = (MIN_WIDTH_DP * dm.density).toInt()
+        val minFractionPx = (dm.widthPixels * MIN_WIDTH_FRACTION).toInt()
+        return max(minDpPx, minFractionPx)
+    }
+
+    /**
+     * Apply a new size to the floating keyboard overlay and reparented
+     * keyboard. The left edge of the window stays fixed (anchorLeft = true)
+     * or the right edge stays fixed (anchorLeft = false) depending on which
+     * handle is being dragged. The width fraction is persisted so the size
+     * is preserved across orientation changes and floating-mode sessions.
+     */
+    private fun resizeTo(newWidth: Int, anchorLeft: Boolean) {
+        if (!isFloating) return
+        val dm = context.resources.displayMetrics
+        val currentLp = windowParams ?: return
+        val minWidth = calculateMinWidth(dm)
+        // Max width depends on which side is anchored so the keyboard never
+        // extends past the screen on the side being dragged.
+        val maxWidth = if (anchorLeft) {
+            // Left handle: the left edge can move as far left as 0, so the
+            // right edge of the keyboard (which is fixed) limits the width.
+            resizeInitialWindowRight
+        } else {
+            // Right handle: the right edge can move as far right as the
+            // screen width, so the left edge of the keyboard (which is
+            // fixed) limits the width.
+            dm.widthPixels - resizeInitialWindowX
+        }
+        val clampedWidth = newWidth.coerceIn(minWidth, maxWidth)
+
+        val newX: Int = if (anchorLeft) {
+            // Right edge stays fixed: x = rightEdge - newWidth
+            resizeInitialWindowRight - clampedWidth
+        } else {
+            // Left edge stays fixed
+            resizeInitialWindowX
+        }
+
+        if (clampedWidth == currentLp.width && newX == currentLp.x) return
+
+        // Persist as a fraction of the current screen width so it scales
+        // correctly across orientation changes.
+        val newFraction = (clampedWidth.toFloat() / dm.widthPixels)
+            .coerceIn(MIN_WIDTH_FRACTION, MAX_WIDTH_FRACTION)
+        if (newFraction != widthFraction) {
+            widthFraction = newFraction
+            prefs.edit().putFloat(PREF_WIDTH_FRACTION, widthFraction).apply()
+        }
+
+        ResourceUtils.setFloatingKeyboardWidth(clampedWidth)
+        currentLp.width = clampedWidth
+        currentLp.x = newX
+        try {
+            windowManager?.updateViewLayout(overlayRoot, currentLp)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update overlay layout during resize", e)
+        }
+
+        // Update keyboard frame layout so it fills the new width.
+        val contentContainer = overlayRoot?.getChildAt(0) as? LinearLayout
+        val mainKeyboardFrame = contentContainer?.findViewById<View>(R.id.main_keyboard_frame)
+        if (mainKeyboardFrame != null) {
+            mainKeyboardFrame.layoutParams = LinearLayout.LayoutParams(
+                clampedWidth,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            contentContainer.requestLayout()
+        }
+
+        // Reload keyboard so keys re-measure at the new width. Same
+        // approach as one-handed mode resize: not great for performance
+        // on every move event, but good enough and ensures correctness.
+        KeyboardSwitcher.getInstance().reloadKeyboard()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun createResizeHandle(density: Float, textColor: Int, isLeft: Boolean): View {
+        val size = (RESIZE_HANDLE_SIZE_DP * density).toInt()
+        val margin = (RESIZE_HANDLE_MARGIN_DP * density).toInt()
+        val handle = View(context).apply {
+            layoutParams = FrameLayout.LayoutParams(size, size).apply {
+                gravity = if (isLeft) Gravity.BOTTOM or Gravity.START else Gravity.BOTTOM or Gravity.END
+                if (isLeft) marginStart = margin else marginEnd = margin
+                bottomMargin = margin
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(textColor and 0x00FFFFFF or 0x33000000) // 20% alpha — subtle
+            }
+            contentDescription = context.getString(R.string.floating_keyboard_resize_handle)
+        }
+
+        handle.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    resizeInitialWidth = windowParams?.width ?: 0
+                    resizeInitialWindowX = windowParams?.x ?: 0
+                    resizeInitialWindowRight = resizeInitialWindowX + resizeInitialWidth
+                    initialTouchX = event.rawX
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - initialTouchX
+                    val targetWidth = if (isLeft) {
+                        // Left handle: dragging left widens, right edge stays put
+                        resizeInitialWidth - dx.toInt()
+                    } else {
+                        // Right handle: dragging right widens, left edge stays put
+                        resizeInitialWidth + dx.toInt()
+                    }
+                    resizeTo(targetWidth, anchorLeft = isLeft)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    savePosition()
+                    true
+                }
+                else -> false
+            }
+        }
+
+        return handle
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun createHeaderBar(height: Int, bgColor: Int, textColor: Int, density: Float, cornerRadius: Float): FrameLayout {

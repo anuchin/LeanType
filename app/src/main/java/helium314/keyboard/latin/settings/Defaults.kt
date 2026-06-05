@@ -86,6 +86,7 @@ object Defaults {
     const val PREF_ENABLE_SPLIT_KEYBOARD = false
     const val PREF_ENABLE_SPLIT_KEYBOARD_LANDSCAPE = false
     const val PREF_PERSIST_FLOATING_KEYBOARD = false
+    const val PREF_SHOW_UTILITY_BAR = true
     @JvmField
     val PREF_SPLIT_SPACER_SCALE = Array(2) { DEFAULT_SIZE_SCALE }
     @JvmField
