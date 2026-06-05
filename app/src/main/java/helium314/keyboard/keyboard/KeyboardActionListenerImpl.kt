@@ -4,7 +4,6 @@ package helium314.keyboard.keyboard
 import android.os.SystemClock
 import android.text.InputType
 import android.util.SparseArray
-import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.inputmethod.InputMethodSubtype
 import androidx.core.util.forEach
@@ -110,9 +109,7 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         // what makes "tap Ctrl, then tap c" send Ctrl+C to the app.
         val utilityBar = latinIME.utilityKeyBar
         if (utilityBar != null && utilityBar.hasActiveModifiers()) {
-            val kcm = KeyCharacterMap.getInstance(KeyCharacterMap.VIRTUAL_KEYBOARD)
-            val events = kcm.getEvents(charArrayOf(primaryCode.toChar()))
-            val keyCode = events?.firstOrNull()?.keyCode ?: KeyEvent.KEYCODE_UNKNOWN
+            val keyCode = charToKeyCode(primaryCode)
             if (keyCode != KeyEvent.KEYCODE_UNKNOWN) {
                 val combinedMeta = metaState or utilityBar.getMetaState()
                 val eventTime = SystemClock.uptimeMillis()
@@ -613,5 +610,37 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         }
 
         private fun Int.isMetaLock() = this == KeyCode.CTRL_LOCK || this == KeyCode.ALT_LOCK || this == KeyCode.FN_LOCK || this == KeyCode.META_LOCK
+    }
+
+    /**
+     * Convert a character code (as received in [onCodeInput]) to the
+     * corresponding [KeyEvent] key code. Returns [KeyEvent.KEYCODE_UNKNOWN]
+     * for characters that have no standard key code, in which case the
+     * caller should fall back to normal text input.
+     *
+     * We do not use [KeyCharacterMap] because its [KeyCharacterMap.getInstance]
+     * factory is marked @hide in the Android SDK and is not callable from
+     * regular apps. This covers the common ASCII range used for shortcut
+     * keys; the fallback to text input handles any unsupported characters.
+     */
+    private fun charToKeyCode(c: Int): Int = when (c) {
+        in 'a'..'z' -> KeyEvent.KEYCODE_A + (c - 'a'.code)
+        in 'A'..'Z' -> KeyEvent.KEYCODE_A + (c - 'A'.code)
+        in '0'..'9' -> KeyEvent.KEYCODE_0 + (c - '0'.code)
+        ' ' -> KeyEvent.KEYCODE_SPACE
+        '\n' -> KeyEvent.KEYCODE_ENTER
+        '\t' -> KeyEvent.KEYCODE_TAB
+        '.' -> KeyEvent.KEYCODE_PERIOD
+        ',' -> KeyEvent.KEYCODE_COMMA
+        ';' -> KeyEvent.KEYCODE_SEMICOLON
+        '\'' -> KeyEvent.KEYCODE_APOSTROPHE
+        '/' -> KeyEvent.KEYCODE_SLASH
+        '\\' -> KeyEvent.KEYCODE_BACKSLASH
+        '-' -> KeyEvent.KEYCODE_MINUS
+        '=' -> KeyEvent.KEYCODE_EQUALS
+        '[' -> KeyEvent.KEYCODE_LEFT_BRACKET
+        ']' -> KeyEvent.KEYCODE_RIGHT_BRACKET
+        '`' -> KeyEvent.KEYCODE_GRAVE
+        else -> KeyEvent.KEYCODE_UNKNOWN
     }
 }
