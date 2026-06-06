@@ -1319,7 +1319,14 @@ public class LatinIME extends InputMethodService implements
         // Need to set expanded touchable region only if a keyboard view is being shown.
         if (visibleKeyboardView.isShown()) {
             final int touchLeft = 0;
-            final int touchTop = mKeyboardSwitcher.isShowingPopupKeysPanel() ? 0 : visibleTopY;
+            // The touchable region must cover the whole IME window, including the suggestion
+            // strip and the utility bar (the area above the keyboard). Otherwise touches in
+            // that area would fall through to the app behind the keyboard, breaking the
+            // suggestion word clicks, toolbar keys (e.g. floating-mode toggle), and utility
+            // bar buttons. The popup-keys-panel case used to be the only one expanded to
+            // touchTop == 0 for the same reason; now the strip + utility bar are also above
+            // the keyboard (since the utility bar commit) and need the same treatment.
+            final int touchTop = 0;
             final int touchRight = visibleKeyboardView.getWidth();
             final int touchBottom = inputHeight
                     // Extend touchable region below the keyboard.
