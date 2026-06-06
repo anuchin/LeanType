@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings as AndroidSettings
 import android.content.Intent
 import android.net.Uri
@@ -15,11 +17,13 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.Toast
 import helium314.keyboard.keyboard.KeyboardSwitcher
 import helium314.keyboard.latin.common.ColorType
 import helium314.keyboard.latin.settings.Settings
@@ -35,12 +39,14 @@ import kotlin.math.max
  * Key sizes are dynamically adjusted by setting a floating width override in
  * ResourceUtils before triggering a keyboard reload.
  *
- * The floating keyboard can be resized by the user via drag handles on the
- * bottom corners of the overlay. The size is stored as a fraction of the
- * current screen width so it scales correctly across orientation changes
- * and different displays.
+ * The floating keyboard can be resized by long-pressing one of the four
+ * invisible corner hit areas, then dragging freely. Size is stored as a
+ * fraction of the current screen dimensions so it scales correctly across
+ * orientation changes and different displays.
  */
 class FloatingKeyboardManager(private val context: Context, private val latinIME: LatinIME) {
+
+    private enum class ResizeAnchor { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 
     companion object {
         private const val TAG = "FloatingKeyboardManager"
@@ -48,19 +54,32 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         private const val PREF_X = "floating_x"
         private const val PREF_Y = "floating_y"
         private const val PREF_WIDTH_FRACTION = "floating_width_fraction"
+        private const val PREF_HEIGHT_FRACTION = "floating_height_fraction"
+        private const val PREF_RESIZE_HINT_SHOWN = "floating_resize_hint_shown"
         private const val DEFAULT_WIDTH_FRACTION = 0.75f
+        private const val DEFAULT_HEIGHT_FRACTION = 0.4f
         private const val MIN_WIDTH_FRACTION = 0.4f
         private const val MAX_WIDTH_FRACTION = 1.0f
+        private const val MIN_HEIGHT_FRACTION = 0.25f
+        private const val MAX_HEIGHT_FRACTION = 0.85f
         private const val MIN_WIDTH_DP = 200
+        private const val MIN_HEIGHT_DP = 160
         private const val HEADER_HEIGHT_DP = 28
         private const val CORNER_RADIUS_DP = 16f
-        private const val RESIZE_HANDLE_SIZE_DP = 28
-        private const val RESIZE_HANDLE_MARGIN_DP = 4
+        private const val CORNER_HIT_AREA_SIZE_DP = 40
+        private const val RESIZE_HANDLE_THICKNESS_DP = 2
+        private const val RESIZE_HANDLE_LENGTH_DP = 20
+        private const val RESIZE_HANDLE_MARGIN_DP = 6
+        private const val RESIZE_MODE_FADE_DURATION_MS = 120L
+        private const val RESIZE_OUTLINE_ALPHA = 0x40
+        private const val RESIZE_HANDLE_ALPHA = 0x80
     }
 
     private val prefs: SharedPreferences by lazy {
         DeviceProtectedUtils.getSharedPreferences(context, PREFS_NAME)
     }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     var overlayRoot: FrameLayout? = null
         private set
@@ -74,14 +93,28 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
     private var initialTouchX = 0f
     private var initialTouchY = 0f
 
-    // Touch tracking for resize
+    // Resize state. Activated by long-press on a corner hit area; while active
+    // the user's finger can roam freely and both axes resize independently.
+    private var resizeMode = false
+    private var resizeAnchor: ResizeAnchor = ResizeAnchor.TOP_LEFT
     private var resizeInitialWidth = 0
-    private var resizeInitialWindowX = 0
-    private var resizeInitialWindowRight = 0
+    private var resizeInitialHeight = 0
+    private var resizeInitialX = 0
+    private var resizeInitialY = 0
+    private var resizeInitialTouchX = 0f
+    private var resizeInitialTouchY = 0f
+    private var longPressRunnable: Runnable? = null
+    private val touchSlopPx by lazy { ViewConfiguration.get(context).scaledTouchSlop }
+    private val longPressTimeoutMs = ViewConfiguration.getLongPressTimeout().toLong()
+    private var activeCornerView: View? = null
 
-    // Current width fraction of the screen width (clamped to [MIN, MAX]).
-    // Persisted across configuration changes and floating mode sessions.
+    private val visibleCornerHandles = mutableMapOf<ResizeAnchor, View>()
+    private var resizeOutlineView: View? = null
+
+    // Current width and height fractions of the screen dimensions (clamped to
+    // [MIN, MAX]). Persisted across configuration changes and floating-mode sessions.
     private var widthFraction: Float = DEFAULT_WIDTH_FRACTION
+    private var heightFraction: Float = DEFAULT_HEIGHT_FRACTION
 
     var isFloating = false
         private set
@@ -101,15 +134,18 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
     fun show() {
         if (!canDrawOverlays() || isFloating) return
 
-        // Load the persisted width fraction (or use the default).
+        // Load the persisted size fractions (or use the defaults).
         widthFraction = prefs.getFloat(PREF_WIDTH_FRACTION, DEFAULT_WIDTH_FRACTION)
             .coerceIn(MIN_WIDTH_FRACTION, MAX_WIDTH_FRACTION)
+        heightFraction = prefs.getFloat(PREF_HEIGHT_FRACTION, DEFAULT_HEIGHT_FRACTION)
+            .coerceIn(MIN_HEIGHT_FRACTION, MAX_HEIGHT_FRACTION)
 
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Calculate the floating keyboard width
+        // Calculate the floating keyboard size
         val dm = context.resources.displayMetrics
         val floatingWidth = calculateFloatingWidth(dm.widthPixels)
+        val floatingHeight = calculateFloatingHeight(dm.heightPixels)
 
         // Get theme colors
         val colors = Settings.getValues().mColors
@@ -138,7 +174,7 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
             // Rounded corner background on the container
             background = GradientDrawable().apply {
@@ -157,14 +193,41 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         contentContainer.addView(headerBar)
         overlayRoot!!.addView(contentContainer)
 
-        // Add resize handles on the bottom corners of the overlay. They are
-        // children of overlayRoot (siblings of the content container) and
-        // overlap the bottom corners of the keyboard. overlayRoot has
-        // clipToOutline = true, so they are clipped to the rounded corners.
-        val resizeHandleLeft = createResizeHandle(density, textColor, isLeft = true)
-        val resizeHandleRight = createResizeHandle(density, textColor, isLeft = false)
-        overlayRoot!!.addView(resizeHandleLeft)
-        overlayRoot!!.addView(resizeHandleRight)
+        // Outline view drawn on top of the keyboard when resize mode is active.
+        // Kept at 0 alpha until enterResizeMode().
+        resizeOutlineView = View(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(Color.TRANSPARENT)
+                setStroke(
+                    (1 * density).toInt().coerceAtLeast(1),
+                    textColor and 0x00FFFFFF or RESIZE_OUTLINE_ALPHA.shl(24)
+                )
+                this.cornerRadius = cornerRadius
+            }
+            alpha = 0f
+            isClickable = false
+            isFocusable = false
+        }
+        overlayRoot!!.addView(resizeOutlineView)
+
+        // Four invisible corner hit areas + four visible L-brackets. Hit areas
+        // are children of overlayRoot (siblings of the content container), so
+        // they sit on top of everything in z-order. overlayRoot has
+        // clipToOutline = true, so the visible L-brackets are clipped to the
+        // rounded corners.
+        ResizeAnchor.values().forEach { corner ->
+            val hitArea = createCornerHitArea(corner, density)
+            overlayRoot!!.addView(hitArea)
+            val handle = createVisibleCornerHandle(corner, density, textColor)
+            handle.alpha = 0f
+            overlayRoot!!.addView(handle)
+            visibleCornerHandles[corner] = handle
+        }
 
         // Calculate window position
         val savedX = prefs.getInt(PREF_X, -1)
@@ -172,7 +235,7 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
 
         windowParams = WindowManager.LayoutParams(
             floatingWidth,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            floatingHeight,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
@@ -189,7 +252,7 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
             } else {
                 // Center horizontally, near bottom third
                 x = (dm.widthPixels - floatingWidth) / 2
-                y = dm.heightPixels / 3
+                y = (dm.heightPixels - floatingHeight) / 3
             }
         }
 
@@ -202,7 +265,7 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         }
 
         isFloating = true
-        
+
         // Manually trigger reparenting of the current input view into the overlay.
         // reloadKeyboard() alone won't trigger setInputView() if the theme hasn't changed.
         latinIME.mInputView?.let { onInputViewRecreated(it) }
@@ -217,11 +280,21 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         // Hide the IME window so the bottom nav bar goes away
         latinIME.onFloatingKeyboardShown()
 
-        Log.i(TAG, "Floating keyboard shown at ${floatingWidth}px width")
+        // One-time hint so users discover the long-press-to-resize gesture.
+        showResizeHintIfFirstTime()
+
+        Log.i(TAG, "Floating keyboard shown at ${floatingWidth}x${floatingHeight}px")
     }
 
     fun hide(showDockedKeyboard: Boolean = true) {
         if (!isFloating) return
+
+        // Cancel any pending long-press and clear resize state
+        cancelLongPress()
+        resizeMode = false
+        visibleCornerHandles.clear()
+        resizeOutlineView = null
+        activeCornerView = null
 
         // Clear the floating width override FIRST
         ResourceUtils.setFloatingKeyboardWidth(0)
@@ -305,39 +378,43 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
             contentContainer.removeViewAt(1)
         }
 
-        // Recalculate the floating width from the current display metrics so the
-        // overlay window and the keyboard frame match the current screen size
+        // Recalculate the floating size from the current display metrics so the
+        // overlay window and the keyboard frame match the current screen
         // (e.g. after an orientation change landscape -> portrait). The
-        // user-configured width fraction is preserved across rotations.
+        // user-configured fractions are preserved across rotations.
         val dm = context.resources.displayMetrics
         val newFloatingWidth = calculateFloatingWidth(dm.widthPixels)
+        val newFloatingHeight = calculateFloatingHeight(dm.heightPixels)
         val previousFloatingWidth = ResourceUtils.getFloatingKeyboardWidth()
+        val previousFloatingHeight = windowParams?.height ?: 0
         val widthChanged = newFloatingWidth != previousFloatingWidth
-        if (widthChanged) {
-            Log.i(TAG, "Floating keyboard width changed: $previousFloatingWidth -> $newFloatingWidth")
-            ResourceUtils.setFloatingKeyboardWidth(newFloatingWidth)
+        val heightChanged = newFloatingHeight != previousFloatingHeight
+        if (widthChanged || heightChanged) {
+            Log.i(TAG, "Floating keyboard size changed: ${previousFloatingWidth}x$previousFloatingHeight -> ${newFloatingWidth}x$newFloatingHeight")
+            if (widthChanged) {
+                ResourceUtils.setFloatingKeyboardWidth(newFloatingWidth)
+            }
             windowParams?.let { lp ->
                 lp.width = newFloatingWidth
+                lp.height = newFloatingHeight
                 try {
                     windowManager?.updateViewLayout(overlayRoot, lp)
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to update overlay width on input view recreation", e)
+                    Log.w(TAG, "Failed to update overlay size on input view recreation", e)
                 }
             }
         }
 
-        // Reparent new keyboard frame at the (possibly updated) floating width
+        // Reparent new keyboard frame at the (possibly updated) floating size
         newParent.removeView(newMainKeyboardFrame)
         newMainKeyboardFrame.layoutParams = LinearLayout.LayoutParams(
             if (newFloatingWidth > 0) newFloatingWidth else LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+            if (newFloatingHeight > 0) newFloatingHeight else LinearLayout.LayoutParams.WRAP_CONTENT
         )
         contentContainer.addView(newMainKeyboardFrame)
 
-        // If the floating width changed, reload the keyboard so the keys re-measure
-        // at the new width. Without this, keys keep the sizes from the previous
-        // orientation and the keyboard looks wrong.
-        if (widthChanged) {
+        // If the floating size changed, reload the keyboard so the keys re-measure.
+        if (widthChanged || heightChanged) {
             KeyboardSwitcher.getInstance().reloadKeyboard()
         }
     }
@@ -363,130 +440,340 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
     private fun calculateFloatingWidth(screenWidthPx: Int): Int =
         (screenWidthPx * widthFraction).toInt()
 
+    private fun calculateFloatingHeight(screenHeightPx: Int): Int =
+        (screenHeightPx * heightFraction).toInt()
+
     private fun calculateMinWidth(dm: DisplayMetrics): Int {
         val minDpPx = (MIN_WIDTH_DP * dm.density).toInt()
         val minFractionPx = (dm.widthPixels * MIN_WIDTH_FRACTION).toInt()
         return max(minDpPx, minFractionPx)
     }
 
+    private fun calculateMinHeight(dm: DisplayMetrics): Int {
+        val minDpPx = (MIN_HEIGHT_DP * dm.density).toInt()
+        val minFractionPx = (dm.heightPixels * MIN_HEIGHT_FRACTION).toInt()
+        return max(minDpPx, minFractionPx)
+    }
+
+    private fun cancelLongPress() {
+        longPressRunnable?.let { mainHandler.removeCallbacks(it) }
+        longPressRunnable = null
+    }
+
+    private fun showResizeHintIfFirstTime() {
+        if (prefs.getBoolean(PREF_RESIZE_HINT_SHOWN, false)) return
+        prefs.edit().putBoolean(PREF_RESIZE_HINT_SHOWN, true).apply()
+        val toast = Toast.makeText(
+            context,
+            R.string.floating_keyboard_resize_hint,
+            Toast.LENGTH_LONG
+        )
+        val lp = windowParams
+        if (lp != null) {
+            toast.setGravity(
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                0,
+                lp.y + lp.height - (32 * context.resources.displayMetrics.density).toInt()
+            )
+        }
+        toast.show()
+    }
+
+    /**
+     * Enter resize mode for the given corner. The opposite corner becomes the
+     * anchor (stays fixed). Subsequent ACTION_MOVE events on the same touch
+     * gesture drive a free two-axis resize.
+     */
+    private fun enterResizeMode(corner: ResizeAnchor) {
+        if (!isFloating) return
+        val lp = windowParams ?: return
+        resizeMode = true
+        resizeAnchor = corner
+        resizeInitialWidth = lp.width
+        resizeInitialHeight = lp.height
+        resizeInitialX = lp.x
+        resizeInitialY = lp.y
+        // Anchor on the screen is the opposite corner of the press; compute it
+        // so we can clamp resize deltas against the screen edges the user
+        // would otherwise run off.
+        latinIME.vibrateOnResizeModeEnter()
+        showVisibleResizeHandles()
+    }
+
+    /**
+     * Exit resize mode. If persist is true, the new size is written to prefs.
+     */
+    private fun exitResizeMode(persist: Boolean) {
+        if (!resizeMode) return
+        resizeMode = false
+        activeCornerView = null
+        hideVisibleResizeHandles()
+        if (persist) {
+            val dm = context.resources.displayMetrics
+            val lp = windowParams
+            if (lp != null) {
+                val newW = (lp.width.toFloat() / dm.widthPixels)
+                    .coerceIn(MIN_WIDTH_FRACTION, MAX_WIDTH_FRACTION)
+                val newH = (lp.height.toFloat() / dm.heightPixels)
+                    .coerceIn(MIN_HEIGHT_FRACTION, MAX_HEIGHT_FRACTION)
+                if (newW != widthFraction) widthFraction = newW
+                if (newH != heightFraction) heightFraction = newH
+                prefs.edit()
+                    .putFloat(PREF_WIDTH_FRACTION, widthFraction)
+                    .putFloat(PREF_HEIGHT_FRACTION, heightFraction)
+                    .apply()
+                savePosition()
+            }
+        }
+    }
+
+    private fun showVisibleResizeHandles() {
+        val outline = resizeOutlineView ?: return
+        outline.animate().cancel()
+        outline.animate().alpha(1f).setDuration(RESIZE_MODE_FADE_DURATION_MS).start()
+        visibleCornerHandles.values.forEach { handle ->
+            handle.animate().cancel()
+            handle.animate().alpha(1f).setDuration(RESIZE_MODE_FADE_DURATION_MS).start()
+        }
+    }
+
+    private fun hideVisibleResizeHandles() {
+        val outline = resizeOutlineView
+        outline?.animate()?.cancel()
+        outline?.animate()?.alpha(0f)?.setDuration(RESIZE_MODE_FADE_DURATION_MS)?.start()
+        visibleCornerHandles.values.forEach { handle ->
+            handle.animate().cancel()
+            handle.animate().alpha(0f).setDuration(RESIZE_MODE_FADE_DURATION_MS).start()
+        }
+    }
+
     /**
      * Apply a new size to the floating keyboard overlay and reparented
-     * keyboard. The left edge of the window stays fixed (anchorLeft = true)
-     * or the right edge stays fixed (anchorLeft = false) depending on which
-     * handle is being dragged. The width fraction is persisted so the size
-     * is preserved across orientation changes and floating-mode sessions.
+     * keyboard, anchored on the corner opposite to which the user pressed.
+     * The opposite corner stays fixed; the pressed corner moves to satisfy
+     * the new width/height. Both axes are clamped independently against
+     * minimum size and the screen edges. The size fractions are not persisted
+     * here — exitResizeMode() handles that on ACTION_UP.
      */
-    private fun resizeTo(newWidth: Int, anchorLeft: Boolean) {
+    private fun resizeTo(newWidth: Int, newHeight: Int, anchor: ResizeAnchor) {
         if (!isFloating) return
         val dm = context.resources.displayMetrics
         val currentLp = windowParams ?: return
         val minWidth = calculateMinWidth(dm)
-        // Max width depends on which side is anchored so the keyboard never
-        // extends past the screen on the side being dragged.
-        val maxWidth = if (anchorLeft) {
-            // Left handle: the left edge can move as far left as 0, so the
-            // right edge of the keyboard (which is fixed) limits the width.
-            resizeInitialWindowRight
-        } else {
-            // Right handle: the right edge can move as far right as the
-            // screen width, so the left edge of the keyboard (which is
-            // fixed) limits the width.
-            dm.widthPixels - resizeInitialWindowX
-        }
-        val clampedWidth = newWidth.coerceIn(minWidth, maxWidth)
+        val minHeight = calculateMinHeight(dm)
 
-        val newX: Int = if (anchorLeft) {
-            // Right edge stays fixed: x = rightEdge - newWidth
-            resizeInitialWindowRight - clampedWidth
-        } else {
-            // Left edge stays fixed
-            resizeInitialWindowX
+        // Maximum dimensions are bounded by where the anchored edges sit on
+        // the screen. If the anchored left edge is at x=0 the keyboard can be
+        // at most screenWidth wide; if at x=screenWidth it can be 0 wide.
+        val maxWidth = when (anchor) {
+            ResizeAnchor.TOP_LEFT, ResizeAnchor.BOTTOM_LEFT ->
+                dm.widthPixels - resizeInitialX
+            ResizeAnchor.TOP_RIGHT, ResizeAnchor.BOTTOM_RIGHT ->
+                resizeInitialX + resizeInitialWidth
+        }
+        val maxHeight = when (anchor) {
+            ResizeAnchor.TOP_LEFT, ResizeAnchor.TOP_RIGHT ->
+                dm.heightPixels - resizeInitialY
+            ResizeAnchor.BOTTOM_LEFT, ResizeAnchor.BOTTOM_RIGHT ->
+                resizeInitialY + resizeInitialHeight
+        }
+        val clampedWidth = newWidth.coerceIn(minWidth, maxWidth.coerceAtLeast(minWidth))
+        val clampedHeight = newHeight.coerceIn(minHeight, maxHeight.coerceAtLeast(minHeight))
+
+        val newX: Int = when (anchor) {
+            ResizeAnchor.TOP_LEFT, ResizeAnchor.BOTTOM_LEFT -> resizeInitialX
+            ResizeAnchor.TOP_RIGHT, ResizeAnchor.BOTTOM_RIGHT ->
+                resizeInitialX + resizeInitialWidth - clampedWidth
+        }
+        val newY: Int = when (anchor) {
+            ResizeAnchor.TOP_LEFT, ResizeAnchor.TOP_RIGHT -> resizeInitialY
+            ResizeAnchor.BOTTOM_LEFT, ResizeAnchor.BOTTOM_RIGHT ->
+                resizeInitialY + resizeInitialHeight - clampedHeight
         }
 
-        if (clampedWidth == currentLp.width && newX == currentLp.x) return
-
-        // Persist as a fraction of the current screen width so it scales
-        // correctly across orientation changes.
-        val newFraction = (clampedWidth.toFloat() / dm.widthPixels)
-            .coerceIn(MIN_WIDTH_FRACTION, MAX_WIDTH_FRACTION)
-        if (newFraction != widthFraction) {
-            widthFraction = newFraction
-            prefs.edit().putFloat(PREF_WIDTH_FRACTION, widthFraction).apply()
-        }
+        if (clampedWidth == currentLp.width && clampedHeight == currentLp.height &&
+            newX == currentLp.x && newY == currentLp.y) return
 
         ResourceUtils.setFloatingKeyboardWidth(clampedWidth)
         currentLp.width = clampedWidth
+        currentLp.height = clampedHeight
         currentLp.x = newX
+        currentLp.y = newY
         try {
             windowManager?.updateViewLayout(overlayRoot, currentLp)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to update overlay layout during resize", e)
         }
 
-        // Update keyboard frame layout so it fills the new width.
+        // Update keyboard frame layout so it fills the new size.
         val contentContainer = overlayRoot?.getChildAt(0) as? LinearLayout
         val mainKeyboardFrame = contentContainer?.findViewById<View>(R.id.main_keyboard_frame)
         if (mainKeyboardFrame != null) {
             mainKeyboardFrame.layoutParams = LinearLayout.LayoutParams(
                 clampedWidth,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                clampedHeight - (HEADER_HEIGHT_DP * dm.density).toInt()
             )
             contentContainer.requestLayout()
         }
 
-        // Reload keyboard so keys re-measure at the new width. Same
+        // Reload keyboard so keys re-measure at the new size. Same
         // approach as one-handed mode resize: not great for performance
         // on every move event, but good enough and ensures correctness.
         KeyboardSwitcher.getInstance().reloadKeyboard()
     }
 
+    /**
+     * Build an invisible touch target anchored at the given corner. On
+     * long-press the touch sequence transitions into resize mode. The
+     * touchable area is intentionally larger than the visible L-bracket
+     * so corners feel forgiving.
+     */
     @SuppressLint("ClickableViewAccessibility")
-    private fun createResizeHandle(density: Float, textColor: Int, isLeft: Boolean): View {
-        val size = (RESIZE_HANDLE_SIZE_DP * density).toInt()
-        val margin = (RESIZE_HANDLE_MARGIN_DP * density).toInt()
-        val handle = View(context).apply {
+    private fun createCornerHitArea(corner: ResizeAnchor, density: Float): View {
+        val size = (CORNER_HIT_AREA_SIZE_DP * density).toInt()
+        val gravity = when (corner) {
+            ResizeAnchor.TOP_LEFT -> Gravity.TOP or Gravity.START
+            ResizeAnchor.TOP_RIGHT -> Gravity.TOP or Gravity.END
+            ResizeAnchor.BOTTOM_LEFT -> Gravity.BOTTOM or Gravity.START
+            ResizeAnchor.BOTTOM_RIGHT -> Gravity.BOTTOM or Gravity.END
+        }
+        val area = View(context).apply {
             layoutParams = FrameLayout.LayoutParams(size, size).apply {
-                gravity = if (isLeft) Gravity.BOTTOM or Gravity.START else Gravity.BOTTOM or Gravity.END
-                if (isLeft) marginStart = margin else marginEnd = margin
-                bottomMargin = margin
+                this.gravity = gravity
             }
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(textColor and 0x00FFFFFF or 0x33000000) // 20% alpha — subtle
-            }
-            contentDescription = context.getString(R.string.floating_keyboard_resize_handle)
+            isClickable = true
+            isFocusable = false
+            contentDescription = context.getString(R.string.floating_keyboard_resize_corner_description)
         }
 
-        handle.setOnTouchListener { _, event ->
+        var downX = 0f
+        var downY = 0f
+
+        area.setOnTouchListener { _, event ->
+            if (windowParams == null) return@setOnTouchListener false
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    resizeInitialWidth = windowParams?.width ?: 0
-                    resizeInitialWindowX = windowParams?.x ?: 0
-                    resizeInitialWindowRight = resizeInitialWindowX + resizeInitialWidth
-                    initialTouchX = event.rawX
+                    downX = event.rawX
+                    downY = event.rawY
+                    activeCornerView = area
+                    val runnable = Runnable {
+                        if (activeCornerView === area && !resizeMode) {
+                            enterResizeMode(corner)
+                            resizeInitialTouchX = event.rawX
+                            resizeInitialTouchY = event.rawY
+                        }
+                    }
+                    longPressRunnable = runnable
+                    mainHandler.postDelayed(runnable, longPressTimeoutMs)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - initialTouchX
-                    val targetWidth = if (isLeft) {
-                        // Left handle: dragging left widens, right edge stays put
-                        resizeInitialWidth - dx.toInt()
+                    if (resizeMode) {
+                        val dx = event.rawX - resizeInitialTouchX
+                        val dy = event.rawY - resizeInitialTouchY
+                        resizeTo(
+                            resizeInitialWidth + dx.toInt(),
+                            resizeInitialHeight + dy.toInt(),
+                            resizeAnchor
+                        )
+                        true
                     } else {
-                        // Right handle: dragging right widens, left edge stays put
-                        resizeInitialWidth + dx.toInt()
+                        val totalDx = event.rawX - downX
+                        val totalDy = event.rawY - downY
+                        if (totalDx * totalDx + totalDy * totalDy > touchSlopPx * touchSlopPx) {
+                            cancelLongPress()
+                            activeCornerView = null
+                            false
+                        } else {
+                            true
+                        }
                     }
-                    resizeTo(targetWidth, anchorLeft = isLeft)
+                }
+                MotionEvent.ACTION_UP -> {
+                    cancelLongPress()
+                    if (resizeMode) {
+                        exitResizeMode(persist = true)
+                    }
+                    activeCornerView = null
                     true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    savePosition()
+                MotionEvent.ACTION_CANCEL -> {
+                    cancelLongPress()
+                    if (resizeMode) {
+                        exitResizeMode(persist = false)
+                    }
+                    activeCornerView = null
                     true
                 }
                 else -> false
             }
         }
+        return area
+    }
 
-        return handle
+    /**
+     * Build the decorative L-bracket for a corner. Shown only when resize
+     * mode is active. Two thin Views inside a FrameLayout form the L.
+     */
+    private fun createVisibleCornerHandle(corner: ResizeAnchor, density: Float, textColor: Int): View {
+        val length = (RESIZE_HANDLE_LENGTH_DP * density).toInt()
+        val thickness = (RESIZE_HANDLE_THICKNESS_DP * density).toInt().coerceAtLeast(1)
+        val margin = (RESIZE_HANDLE_MARGIN_DP * density).toInt()
+        val handleColor = textColor and 0x00FFFFFF or (RESIZE_HANDLE_ALPHA.shl(24))
+
+        val container = FrameLayout(context).apply {
+            layoutParams = FrameLayout.LayoutParams(length, length).apply {
+                gravity = when (corner) {
+                    ResizeAnchor.TOP_LEFT -> Gravity.TOP or Gravity.START
+                    ResizeAnchor.TOP_RIGHT -> Gravity.TOP or Gravity.END
+                    ResizeAnchor.BOTTOM_LEFT -> Gravity.BOTTOM or Gravity.START
+                    ResizeAnchor.BOTTOM_RIGHT -> Gravity.BOTTOM or Gravity.END
+                }
+                if (corner == ResizeAnchor.TOP_LEFT || corner == ResizeAnchor.BOTTOM_LEFT) {
+                    marginStart = margin
+                } else {
+                    marginEnd = margin
+                }
+                if (corner == ResizeAnchor.TOP_LEFT || corner == ResizeAnchor.TOP_RIGHT) {
+                    topMargin = margin
+                } else {
+                    bottomMargin = margin
+                }
+            }
+            isClickable = false
+            isFocusable = false
+        }
+
+        val (hGravity, vGravity) = when (corner) {
+            ResizeAnchor.TOP_LEFT -> Gravity.START or Gravity.TOP to Gravity.START or Gravity.TOP
+            ResizeAnchor.TOP_RIGHT -> Gravity.END or Gravity.TOP to Gravity.END or Gravity.TOP
+            ResizeAnchor.BOTTOM_LEFT -> Gravity.START or Gravity.BOTTOM to Gravity.START or Gravity.BOTTOM
+            ResizeAnchor.BOTTOM_RIGHT -> Gravity.END or Gravity.BOTTOM to Gravity.END or Gravity.BOTTOM
+        }
+
+        // Vertical bar of the L
+        container.addView(View(context).apply {
+            layoutParams = FrameLayout.LayoutParams(thickness, length).apply {
+                gravity = vGravity
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                this.cornerRadius = thickness / 2f
+                setColor(handleColor)
+            }
+        })
+        // Horizontal bar of the L
+        container.addView(View(context).apply {
+            layoutParams = FrameLayout.LayoutParams(length, thickness).apply {
+                gravity = hGravity
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                this.cornerRadius = thickness / 2f
+                setColor(handleColor)
+            }
+        })
+        return container
     }
 
     @SuppressLint("ClickableViewAccessibility")

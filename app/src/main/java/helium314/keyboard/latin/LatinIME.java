@@ -811,6 +811,17 @@ public class LatinIME extends InputMethodService implements
     }
 
     /**
+     * Haptic cue when the floating keyboard enters resize mode (long-press on a corner).
+     * Routes through the existing AudioAndHapticFeedbackManager so the vibrate-on setting
+     * and do-not-disturb behavior are respected.
+     */
+    public void vibrateOnResizeModeEnter() {
+        final MainKeyboardView keyboardView = mKeyboardSwitcher.getMainKeyboardView();
+        AudioAndHapticFeedbackManager.getInstance()
+                .performHapticFeedback(keyboardView, HapticEvent.KEY_LONG_PRESS);
+    }
+
+    /**
      * Called by FloatingKeyboardManager when the floating overlay is dismissed.
      * Restores the IME input view and re-shows the IME window.
      */

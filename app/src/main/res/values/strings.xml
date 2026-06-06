@@ -1211,6 +1211,8 @@ New dictionary:
     <string name="clear_emoji_history_message">Are you sure you want to clear your recently used emojis?</string>
     <string name="floating_keyboard_drag_handle">Drag to move keyboard</string>
     <string name="floating_keyboard_resize_handle">Drag to resize keyboard</string>
+    <string name="floating_keyboard_resize_corner_description">Resize handle</string>
+    <string name="floating_keyboard_resize_hint">Long-press a corner to resize</string>
     <!-- Utility bar modifier key content description, with the modifier name as argument (e.g. "Toggle Ctrl modifier") -->
     <string name="utility_bar_modifier_desc">Toggle %1$s modifier</string>
     <string name="utility_bar_esc_desc">Escape</string>
