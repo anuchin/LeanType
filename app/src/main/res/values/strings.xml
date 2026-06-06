@@ -1219,6 +1219,9 @@ New dictionary:
     <string name="utility_bar_arrow_left_desc">Arrow left</string>
     <string name="utility_bar_arrow_down_desc">Arrow down</string>
     <string name="utility_bar_arrow_right_desc">Arrow right</string>
+    <!-- Option to show the utility bar (Ctrl/Shift/Alt/Esc/Tab/arrows) above the QWERTY rows -->
+    <string name="show_utility_bar">Utility bar</string>
+    <string name="show_utility_bar_summary">Show Ctrl, Shift, Alt, Esc, Tab and arrow keys above the keyboard</string>
     <string name="persist_floating_keyboard_title">Persist floating keyboard</string>
     <string name="persist_floating_keyboard_summary">Do not hide floating keyboard when input finishes</string>
 </resources>
