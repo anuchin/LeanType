@@ -744,17 +744,17 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
             isFocusable = false
         }
 
-        val (hGravity, vGravity) = when (corner) {
-            ResizeAnchor.TOP_LEFT -> Gravity.START or Gravity.TOP to Gravity.START or Gravity.TOP
-            ResizeAnchor.TOP_RIGHT -> Gravity.END or Gravity.TOP to Gravity.END or Gravity.TOP
-            ResizeAnchor.BOTTOM_LEFT -> Gravity.START or Gravity.BOTTOM to Gravity.START or Gravity.BOTTOM
-            ResizeAnchor.BOTTOM_RIGHT -> Gravity.END or Gravity.BOTTOM to Gravity.END or Gravity.BOTTOM
+        val barGravity = when (corner) {
+            ResizeAnchor.TOP_LEFT -> Gravity.START or Gravity.TOP
+            ResizeAnchor.TOP_RIGHT -> Gravity.END or Gravity.TOP
+            ResizeAnchor.BOTTOM_LEFT -> Gravity.START or Gravity.BOTTOM
+            ResizeAnchor.BOTTOM_RIGHT -> Gravity.END or Gravity.BOTTOM
         }
 
         // Vertical bar of the L
         container.addView(View(context).apply {
             layoutParams = FrameLayout.LayoutParams(thickness, length).apply {
-                gravity = vGravity
+                gravity = barGravity
             }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -765,7 +765,7 @@ class FloatingKeyboardManager(private val context: Context, private val latinIME
         // Horizontal bar of the L
         container.addView(View(context).apply {
             layoutParams = FrameLayout.LayoutParams(length, thickness).apply {
-                gravity = hGravity
+                gravity = barGravity
             }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
