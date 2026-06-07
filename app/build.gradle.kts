@@ -213,7 +213,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     "standardImplementation"("androidx.dynamicanimation:dynamicanimation:1.0.0")
     "standardImplementation"("androidx.activity:activity-ktx:1.10.0")
-    "standardImplementation"("com.google.android.material:material:1.13.0")
+    implementation("com.google.android.material:material:1.13.0")
 
     // test
     testImplementation(kotlin("test"))
