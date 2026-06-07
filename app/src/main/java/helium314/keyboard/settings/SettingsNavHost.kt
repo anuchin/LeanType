@@ -10,9 +10,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import helium314.keyboard.latin.common.LocaleUtils.constructLocale
 import helium314.keyboard.latin.settings.SettingsSubtype.Companion.toSettingsSubtype
 import helium314.keyboard.latin.settings.getTransitionAnimationScale
@@ -32,10 +34,13 @@ import helium314.keyboard.settings.screens.MainSettingsScreen
 import helium314.keyboard.settings.screens.PersonalDictionariesScreen
 import helium314.keyboard.settings.screens.PersonalDictionaryScreen
 import helium314.keyboard.settings.screens.PreferencesScreen
+import helium314.keyboard.settings.screens.ProviderConfigScreen
 import helium314.keyboard.settings.screens.SecondaryLayoutScreen
 import helium314.keyboard.settings.screens.SubtypeScreen
 import helium314.keyboard.settings.screens.TextCorrectionScreen
 import helium314.keyboard.settings.screens.ToolbarScreen
+import helium314.keyboard.settings.screens.VoiceProvidersScreen
+import helium314.keyboard.settings.screens.VoiceSettingsScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -164,6 +169,24 @@ fun SettingsNavHost(
         composable(SettingsDestination.TextExpander) {
             TextExpanderScreen(onClickBack = ::goBack)
         }
+        composable(SettingsDestination.VoiceSettings) {
+            VoiceSettingsScreen(onClickBack = ::goBack)
+        }
+        composable(SettingsDestination.VoiceProviders) {
+            VoiceProvidersScreen(
+                onClickBack = ::goBack,
+                onEditProvider = { id ->
+                    navController.navigate(SettingsDestination.providerConfigRoute(id))
+                },
+            )
+        }
+        composable(
+            SettingsDestination.ProviderConfig,
+            arguments = listOf(navArgument("id") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id") ?: ""
+            ProviderConfigScreen(providerId = id, onClickBack = ::goBack)
+        }
     }
     if (target.value != SettingsDestination.Settings/* && target.value != navController.currentBackStackEntry?.destination?.route*/)
         navController.navigate(route = target.value)
@@ -192,6 +215,10 @@ object SettingsDestination {
     const val CustomAIKeys = "custom_ai_keys"
     const val CustomAIKeyConfig = "custom_ai_key_config/"
     const val TextExpander = "text_expander"
+    const val VoiceSettings = "voice_settings"
+    const val VoiceProviders = "voice_providers"
+    const val ProviderConfig = "voice_provider_config/{id}"
+    fun providerConfigRoute(id: String) = "voice_provider_config/$id"
     val navTarget = MutableStateFlow(Settings)
 
     private val navScope = CoroutineScope(Dispatchers.Default)

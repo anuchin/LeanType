@@ -1146,7 +1146,9 @@ public final class InputLogic {
                 // #onPressKey(int,int,boolean)} and {@link #onReleaseKey(int,boolean)}.
                 // We need to switch to the shortcut IME. This is handled by LatinIME since the
                 // input logic has no business with IME switching.
-            case KeyCode.EMOJI, KeyCode.TOGGLE_ONE_HANDED_MODE, KeyCode.SWITCH_ONE_HANDED_MODE, KeyCode.TOGGLE_FLOATING_KEYBOARD:
+            case KeyCode.EMOJI, KeyCode.TOGGLE_ONE_HANDED_MODE, KeyCode.SWITCH_ONE_HANDED_MODE, KeyCode.TOGGLE_FLOATING_KEYBOARD,
+                 KeyCode.VOICE_START_STOP, KeyCode.VOICE_CANCEL, KeyCode.VOICE_INSERT,
+                 KeyCode.VOICE_REFORMAT, KeyCode.VOICE_COPY:
                 break;
             case KeyCode.CAPS_LOCK:
                 if (KeyboardSwitcher.getInstance().getKeyboard() == null

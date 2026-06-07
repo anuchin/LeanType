@@ -199,6 +199,190 @@ public class LatinIME extends InputMethodService implements
         mUtilityKeyBar = bar;
     }
 
+    private helium314.keyboard.latin.voice.VoiceSessionController mVoiceController;
+    private helium314.keyboard.latin.voice.VoiceModeView mVoiceModeView;
+
+    public helium314.keyboard.latin.voice.VoiceSessionController getVoiceController() {
+        if (mVoiceController == null) {
+            mVoiceController = new helium314.keyboard.latin.voice.VoiceSessionController(this);
+        }
+        return mVoiceController;
+    }
+
+    public void setVoiceModeView(helium314.keyboard.latin.voice.VoiceModeView view) {
+        mVoiceModeView = view;
+    }
+
+    public helium314.keyboard.latin.voice.VoiceModeView.Callbacks getVoiceModeCallbacks() {
+        return new VoiceModeCallbacks();
+    }
+
+    public void onEnterVoiceMode() {
+        final helium314.keyboard.latin.voice.VoiceSessionController controller = getVoiceController();
+        controller.setLastTranscript("");
+        final helium314.keyboard.latin.voice.VoiceSettings settings =
+                new helium314.keyboard.latin.voice.VoiceSettings(this);
+        if (mVoiceModeView != null) {
+            mVoiceModeView.setReformatEnabled(settings.reformatEnabled);
+            mVoiceModeView.setHoldMode(settings.holdMode);
+        }
+        controller.setReformatter(text -> helium314.keyboard.latin.voice.VoiceReformatter.reformat(
+                LatinIME.this, text, settings.reformatTone));
+        if (mVoiceModeView != null) {
+            controller.attachView(mVoiceModeView);
+        }
+        controller.resetStateIfTransient();
+        controller.refreshUiState();
+    }
+
+    public void onExitVoiceMode() {
+        final helium314.keyboard.latin.voice.VoiceSessionController controller = getVoiceController();
+        controller.cancelRecording();
+        controller.detachView();
+        controller.setLastTranscript("");
+    }
+
+    private final class VoiceModeCallbacks implements helium314.keyboard.latin.voice.VoiceModeView.Callbacks {
+        @Override
+        public void onCloseClicked() {
+            mKeyboardSwitcher.exitVoiceModeKeyboard();
+        }
+
+        @Override
+        public void onStartStopClicked() {
+            final helium314.keyboard.latin.voice.VoiceSessionController controller = getVoiceController();
+            if (controller.uiState.getValue() == helium314.keyboard.latin.voice.VoiceUiState.RECORDING) {
+                controller.stopAndTranscribe();
+            } else if (controller.uiState.getValue() == helium314.keyboard.latin.voice.VoiceUiState.PREVIEW) {
+                controller.startRecording();
+            } else {
+                controller.startRecording();
+            }
+        }
+
+        @Override
+        public void onHoldStart() {
+            getVoiceController().startRecording();
+        }
+
+        @Override
+        public void onHoldEnd(boolean canceled) {
+            if (canceled) {
+                getVoiceController().cancelRecording();
+            } else {
+                getVoiceController().stopAndTranscribe();
+            }
+        }
+
+        @Override
+        public void onCancelClicked() {
+            getVoiceController().cancelRecording();
+        }
+
+        @Override
+        public void onCopyClicked() {
+            final android.content.ClipboardManager cm =
+                    (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            if (cm != null) {
+                final android.content.ClipData clip = android.content.ClipData.newPlainText(
+                        "voice_transcript", getVoiceController().lastTranscript);
+                cm.setPrimaryClip(clip);
+            }
+        }
+
+        @Override
+        public void onPasteClicked() {
+            final android.content.ClipboardManager cm =
+                    (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            if (cm != null && cm.hasPrimaryClip()) {
+                final android.content.ClipData clip = cm.getPrimaryClip();
+                if (clip != null && clip.getItemCount() > 0) {
+                    final CharSequence text = clip.getItemAt(0).getText();
+                    if (text != null) commitText(text.toString());
+                }
+            }
+        }
+
+        @Override
+        public void onBackspaceClicked() {
+            sendKeyEvent(android.view.KeyEvent.KEYCODE_DEL);
+        }
+
+        @Override
+        public void onEnterClicked() {
+            sendKeyEvent(android.view.KeyEvent.KEYCODE_ENTER);
+        }
+
+        @Override
+        public void onSelectAllClicked() {
+            mInputLogic.getConnection().selectAll();
+        }
+
+        @Override
+        public void onInsertClicked(String text) {
+            commitText(text);
+            mKeyboardSwitcher.exitVoiceModeKeyboard();
+        }
+
+        @Override
+        public void onReformatClicked(String text) {
+            getVoiceController().reformatCurrent(text);
+        }
+
+        @Override
+        public void onReformatToggled(boolean enabled) {
+            new helium314.keyboard.latin.voice.VoiceSettings(LatinIME.this).reformatEnabled = enabled;
+        }
+
+        @Override
+        public void onModeChanged(boolean tapMode) {
+            new helium314.keyboard.latin.voice.VoiceSettings(LatinIME.this).holdMode = !tapMode;
+        }
+
+        @Override
+        public void onPermissionRequest() {
+            final Intent intent = new Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(intent);
+            } catch (android.content.ActivityNotFoundException ignored) {
+            }
+        }
+
+        @Override
+        public void onOpenProviders() {
+            requestHideSelf(0);
+            final Intent intent = new Intent();
+            intent.setClass(LatinIME.this, SettingsActivity2.class);
+            intent.putExtra("screen", helium314.keyboard.settings.SettingsDestination.VoiceProviders);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            try {
+                startActivity(intent);
+            } catch (android.content.ActivityNotFoundException ignored) {
+            }
+        }
+    }
+
+    public void commitText(String text) {
+        if (text == null || text.isEmpty()) return;
+        final android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            ic.commitText(text, 1);
+        }
+    }
+
+    public void sendKeyEvent(int keyCode) {
+        final android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            ic.sendKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
+            ic.sendKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
+        }
+    }
+
     public static final class UIHandler extends LeakGuardHandlerWrapper<LatinIME> {
         private static final int MSG_UPDATE_SHIFT_STATE = 0;
         private static final int MSG_PENDING_IMS_CALLBACK = 1;
@@ -1543,6 +1727,14 @@ public class LatinIME extends InputMethodService implements
     public void onEvent(@NonNull final Event event) {
         if (KeyCode.VOICE_INPUT == event.getKeyCode()) {
             mRichImm.switchToShortcutIme(this);
+        }
+        if (KeyCode.VOICE_TRANSCRIBE_TOGGLE == event.getKeyCode()) {
+            if (mKeyboardSwitcher.isShowingVoiceMode()) {
+                mKeyboardSwitcher.exitVoiceModeKeyboard();
+            } else {
+                mKeyboardSwitcher.setVoiceModeKeyboard();
+            }
+            return;
         }
         final InputTransaction completeInputTransaction = mInputLogic.onCodeInput(mSettings.getCurrent(), event,
                 mKeyboardSwitcher.getKeyboardShiftMode(), mHandler);

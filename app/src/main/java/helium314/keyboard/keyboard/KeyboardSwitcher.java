@@ -40,6 +40,7 @@ import helium314.keyboard.latin.KeyboardWrapperView;
 import helium314.keyboard.latin.LatinIME;
 import helium314.keyboard.latin.FloatingKeyboardManager;
 import helium314.keyboard.latin.UtilityKeyBar;
+import helium314.keyboard.latin.voice.VoiceModeView;
 import helium314.keyboard.latin.R;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
@@ -73,6 +74,7 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
     private ClipboardHistoryView mClipboardHistoryView;
     private TouchpadView mTouchpadView;
     private TextView mFakeToastView;
+    private VoiceModeView mVoiceModeView;
     private LatinIME mLatinIME;
     private RichInputMethodManager mRichImm;
     private boolean mIsHardwareAcceleratedDrawingEnabled;
@@ -563,6 +565,52 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         if (mLatinIME != null && mLatinIME.getFloatingKeyboardManager() != null) {
             mLatinIME.getFloatingKeyboardManager().toggle();
         }
+    }
+
+    // Implements {@link KeyboardState.SwitchActions}.
+    @Override
+    public void setVoiceModeKeyboard() {
+        if (DEBUG_ACTION) {
+            Log.d(TAG, "setVoiceModeKeyboard");
+        }
+        if (mCurrentInputView == null) return;
+        if (mVoiceModeView == null) {
+            mVoiceModeView = (VoiceModeView) LayoutInflater.from(mCurrentInputView.getContext())
+                    .inflate(R.layout.voice_mode, mCurrentInputView, false);
+            mCurrentInputView.addView(mVoiceModeView);
+        }
+        if (mLatinIME != null) {
+            mLatinIME.setVoiceModeView(mVoiceModeView);
+            mVoiceModeView.setCallbacks(mLatinIME.getVoiceModeCallbacks());
+            mLatinIME.onEnterVoiceMode();
+        }
+        mVoiceModeView.setVisibility(View.VISIBLE);
+        mMainKeyboardFrame.setVisibility(View.GONE);
+        if (mSuggestionStripView != null) mSuggestionStripView.setVisibility(View.GONE);
+        if (mStripContainer != null) mStripContainer.setVisibility(View.GONE);
+    }
+
+    // Implements {@link KeyboardState.SwitchActions}.
+    @Override
+    public void exitVoiceModeKeyboard() {
+        if (DEBUG_ACTION) {
+            Log.d(TAG, "exitVoiceModeKeyboard");
+        }
+        if (mLatinIME != null) {
+            mLatinIME.onExitVoiceMode();
+        }
+        if (mVoiceModeView != null) {
+            mVoiceModeView.setVisibility(View.GONE);
+            mVoiceModeView.setCallbacks(null);
+        }
+        mMainKeyboardFrame.setVisibility(View.VISIBLE);
+        if (mStripContainer != null && Settings.getValues().mToolbarMode != ToolbarMode.HIDDEN) {
+            mStripContainer.setVisibility(View.VISIBLE);
+        }
+    }
+
+    public boolean isShowingVoiceMode() {
+        return mVoiceModeView != null && mVoiceModeView.getVisibility() == View.VISIBLE;
     }
 
     public void showTouchpadView() {

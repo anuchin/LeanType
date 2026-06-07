@@ -189,6 +189,7 @@ class KeyboardIconsSet private constructor() {
                     ToolbarKey.CUSTOM_AI_8 -> R.drawable.ic_custom_ai_8
                     ToolbarKey.CUSTOM_AI_9 -> R.drawable.ic_custom_ai_9
                     ToolbarKey.CUSTOM_AI_10 -> R.drawable.ic_custom_ai_10
+                    ToolbarKey.VOICE_TRANSCRIBE -> R.drawable.ic_voice_transcribe_holo
                 })
             }
         } }
@@ -265,6 +266,7 @@ class KeyboardIconsSet private constructor() {
                     ToolbarKey.CUSTOM_AI_8 -> R.drawable.ic_custom_ai_8
                     ToolbarKey.CUSTOM_AI_9 -> R.drawable.ic_custom_ai_9
                     ToolbarKey.CUSTOM_AI_10 -> R.drawable.ic_custom_ai_10
+                    ToolbarKey.VOICE_TRANSCRIBE -> R.drawable.ic_voice_transcribe_lxx
                 })
             }
         } }
@@ -341,6 +343,7 @@ class KeyboardIconsSet private constructor() {
                     ToolbarKey.CUSTOM_AI_8 -> R.drawable.ic_custom_ai_8
                     ToolbarKey.CUSTOM_AI_9 -> R.drawable.ic_custom_ai_9
                     ToolbarKey.CUSTOM_AI_10 -> R.drawable.ic_custom_ai_10
+                    ToolbarKey.VOICE_TRANSCRIBE -> R.drawable.ic_voice_transcribe_rounded
                 })
             }
         } }

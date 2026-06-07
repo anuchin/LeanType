@@ -120,25 +120,25 @@ fun WelcomeWizard(
 
     @Composable
     fun ColumnScope.Step(
-        currentStep: Int, 
-        title: String, 
-        instruction: String, 
-        actionText: String, 
-        icon: Painter, 
-        action: () -> Unit, 
-        onBack: (() -> Unit)? = null, 
+        currentStep: Int,
+        title: String,
+        instruction: String,
+        actionText: String,
+        icon: Painter,
+        action: () -> Unit,
+        onBack: (() -> Unit)? = null,
         content: @Composable () -> Unit = {}
     ) {
         // Progress indicator
         Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            for (i in 1..8) {
+            for (i in 1..9) {
                 Box(
                     modifier = Modifier
                         .height(6.dp)
                         .weight(1f)
                         .padding(horizontal = 4.dp)
                         .background(
-                            if (i <= currentStep) MaterialTheme.colorScheme.primary 
+                            if (i <= currentStep) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceVariant,
                             androidx.compose.foundation.shape.CircleShape
                         )
@@ -325,6 +325,70 @@ fun WelcomeWizard(
                 } else if (step == 5) {
                     Step(
                         5,
+                        stringResource(R.string.setup_voice_title),
+                        stringResource(R.string.setup_voice_instruction),
+                        stringResource(R.string.setup_voice_next),
+                        painterResource(R.drawable.sym_keyboard_language_switch),
+                        { step++ },
+                        { step-- }
+                    ) {
+                        if (BuildConfig.FLAVOR == "standard") {
+                            val voiceSettings = remember { helium314.keyboard.latin.voice.VoiceSettings(ctx) }
+                            val store = remember { helium314.keyboard.latin.voice.ProviderStore(ctx) }
+                            val trigger = refreshTrigger
+                            val defaultId = voiceSettings.defaultProviderId
+                            val provider = defaultId?.let { store.getById(it) }
+                            val configured = provider != null && provider.apiKey.isNotBlank()
+                            val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                                refreshTrigger++
+                            }
+
+                            Box(
+                                Modifier.fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        val intent = Intent()
+                                        intent.setClassName(ctx, "helium314.keyboard.settings.SettingsActivity2")
+                                        intent.putExtra("screen", helium314.keyboard.settings.SettingsDestination.VoiceProviders)
+                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        voiceLauncher.launch(intent)
+                                    }
+                                    .padding(16.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        if (configured) stringResource(R.string.setup_voice_configured)
+                                        else stringResource(R.string.setup_voice_no_providers),
+                                        color = if (configured) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    if (provider != null) {
+                                        Text(
+                                            "${provider.name} · ${voiceSettings.defaultModelId ?: provider.defaultModelId ?: provider.models.firstOrNull()?.id ?: ""}",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                }
+                                if (configured) {
+                                    Icon(
+                                        painterResource(R.drawable.ic_setup_check),
+                                        null,
+                                        Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                "Voice features are not available in this build flavor.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else if (step == 6) {
+                    Step(
+                        6,
                         "Floating Keyboard",
                         "Enable floating keyboard by granting the 'Display over other apps' permission.",
                         "Next",
@@ -351,9 +415,9 @@ fun WelcomeWizard(
                             }
                         }
                     }
-                } else if (step == 6) {
+                } else if (step == 7) {
                     Step(
-                        6,
+                        7,
                         "Screenshot Suggestions",
                         "Suggest recently taken screenshots in the suggestion strip. Note: This permission also allows saving screenshots to the clipboard.",
                         "Next",
@@ -389,9 +453,9 @@ fun WelcomeWizard(
                             }.Preference()
                         }
                     }
-                } else if (step == 7) {
+                } else if (step == 8) {
                     Step(
-                        7,
+                        8,
                         "Keyboard Height",
                         "Adjust the height of the keyboard. Recommended: 77% for more square keys, 100% for taller keys.",
                         "Next",
@@ -418,9 +482,9 @@ fun WelcomeWizard(
                             }
                         }
                     }
-                } else { // step 8
+                } else { // step 9
                     Step(
-                        8,
+                        9,
                         stringResource(R.string.setup_step3_title),
                         stringResource(R.string.setup_step3_instruction, appName),
                         stringResource(R.string.setup_finish_action),

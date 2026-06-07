@@ -61,6 +61,7 @@ public class SettingsValues {
         public final boolean mShowEmojiDescriptions;
         public final boolean mKeyPreviewPopupOn;
         public final boolean mShowsVoiceInputKey;
+        public final boolean mShowsVoiceTranscribeKey;
         public final boolean mLanguageSwitchKeyToOtherImes;
         public final boolean mLanguageSwitchKeyToOtherSubtypes;
         private final boolean mShowsLanguageSwitchKey;
@@ -207,6 +208,7 @@ public class SettingsValues {
                 mSlidingKeyInputPreviewEnabled = prefs.getBoolean(
                                 DebugSettings.PREF_SLIDING_KEY_INPUT_PREVIEW, Defaults.PREF_SLIDING_KEY_INPUT_PREVIEW);
                 mShowsVoiceInputKey = mInputAttributes.mShouldShowVoiceInputKey;
+                mShowsVoiceTranscribeKey = mInputAttributes.mShouldShowVoiceTranscribeKey;
                 final String languagePref = prefs.getString(Settings.PREF_LANGUAGE_SWITCH_KEY,
                                 Defaults.PREF_LANGUAGE_SWITCH_KEY);
                 mLanguageSwitchKeyToOtherImes = languagePref.equals("input_method") || languagePref.equals("both");

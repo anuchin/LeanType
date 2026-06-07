@@ -55,7 +55,13 @@ public final class KeyboardCodesSet {
         "key_toggle_onehanded",
         "key_start_onehanded", // keep name to avoid breaking custom layouts
         "key_stop_onehanded", // keep name to avoid breaking custom layouts
-        "key_switch_onehanded"
+        "key_switch_onehanded",
+        "key_voice_transcribe_toggle",
+        "key_voice_start_stop",
+        "key_voice_cancel",
+        "key_voice_insert",
+        "key_voice_reformat",
+        "key_voice_copy"
     };
 
     private static final int[] DEFAULT = {
@@ -81,7 +87,13 @@ public final class KeyboardCodesSet {
         KeyCode.TOGGLE_ONE_HANDED_MODE,
         KeyCode.TOGGLE_ONE_HANDED_MODE,
         KeyCode.TOGGLE_ONE_HANDED_MODE,
-        KeyCode.SWITCH_ONE_HANDED_MODE
+        KeyCode.SWITCH_ONE_HANDED_MODE,
+        KeyCode.VOICE_TRANSCRIBE_TOGGLE,
+        KeyCode.VOICE_START_STOP,
+        KeyCode.VOICE_CANCEL,
+        KeyCode.VOICE_INSERT,
+        KeyCode.VOICE_REFORMAT,
+        KeyCode.VOICE_COPY
     };
 
     static {

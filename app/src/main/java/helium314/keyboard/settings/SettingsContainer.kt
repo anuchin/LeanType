@@ -111,4 +111,6 @@ object SettingsWithoutKey {
     const val GROQ_MODEL = "groq_model"
     const val CUSTOM_AI_KEYS = "custom_ai_keys"
     const val OFFLINE_KEEP_MODEL_LOADED = "offline_keep_model_loaded"
+    const val VOICE_SETTINGS = "voice_settings"
+    const val VOICE_PROVIDERS = "voice_providers"
 }

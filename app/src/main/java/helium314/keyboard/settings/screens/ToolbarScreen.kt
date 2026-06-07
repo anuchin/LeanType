@@ -92,6 +92,7 @@ fun createToolbarSettings(context: Context): List<Setting> {
         val lowerName = name.lowercase()
         when {
             lowerName.startsWith("custom_ai_") -> BuildConfig.FLAVOR == "standard"
+            lowerName == "voice_transcribe" -> BuildConfig.FLAVOR == "standard"
             lowerName in listOf("proofread", "translate", "clipboard_search") -> BuildConfig.FLAVOR != "offlinelite"
             else -> true
         }

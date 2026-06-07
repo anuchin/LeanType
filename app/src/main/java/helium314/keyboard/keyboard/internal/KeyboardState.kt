@@ -50,6 +50,8 @@ class KeyboardState(private val switchActions: SwitchActions) {
         fun setOneHandedModeEnabled(enabled: Boolean)
         fun switchOneHandedMode()
         fun toggleFloatingKeyboard()
+        fun setVoiceModeKeyboard()
+        fun exitVoiceModeKeyboard()
 
         companion object {
             const val DEBUG_ACTION = false

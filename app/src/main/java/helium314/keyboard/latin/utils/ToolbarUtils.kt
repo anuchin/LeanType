@@ -210,6 +210,7 @@ fun getCodeForToolbarKey(key: ToolbarKey) = Settings.getInstance().getCustomTool
     CUSTOM_AI_8 -> KeyCode.CUSTOM_AI_8
     CUSTOM_AI_9 -> KeyCode.CUSTOM_AI_9
     CUSTOM_AI_10 -> KeyCode.CUSTOM_AI_10
+    VOICE_TRANSCRIBE -> KeyCode.VOICE_TRANSCRIBE_TOGGLE
 }
 
 fun getCodeForToolbarKeyLongClick(key: ToolbarKey) = Settings.getInstance().getCustomToolbarLongpressCode(key) ?: when (key) {
@@ -238,7 +239,8 @@ enum class ToolbarKey {
     INCOGNITO, TOUCHPAD, AUTOCORRECT, CLEAR_CLIPBOARD, CLOSE_HISTORY, EMOJI, LEFT, RIGHT, UP, DOWN, WORD_LEFT, WORD_RIGHT,
     PAGE_UP, PAGE_DOWN, FULL_LEFT, FULL_RIGHT, PAGE_START, PAGE_END, PROOFREAD, TRANSLATE,
     CUSTOM_AI_1, CUSTOM_AI_2, CUSTOM_AI_3, CUSTOM_AI_4, CUSTOM_AI_5,
-    CUSTOM_AI_6, CUSTOM_AI_7, CUSTOM_AI_8, CUSTOM_AI_9, CUSTOM_AI_10
+    CUSTOM_AI_6, CUSTOM_AI_7, CUSTOM_AI_8, CUSTOM_AI_9, CUSTOM_AI_10,
+    VOICE_TRANSCRIBE
 }
 
 enum class ToolbarMode {
@@ -251,20 +253,21 @@ private val excludedKeys by lazy {
     val customAiKeys = if (BuildConfig.FLAVOR != "standard")
         ToolbarKey.entries.filter { it.name.startsWith("CUSTOM_AI_") }
     else emptyList()
+    val voiceTranscribe = if (BuildConfig.FLAVOR != "standard") listOf(VOICE_TRANSCRIBE) else emptyList()
     val otherKeys = if (BuildConfig.FLAVOR == "offlinelite")
         listOf(CLOSE_HISTORY, PROOFREAD, TRANSLATE, CLIPBOARD_SEARCH)
     else
         listOf(CLOSE_HISTORY, CLIPBOARD_SEARCH)
-    customAiKeys + otherKeys
+    customAiKeys + voiceTranscribe + otherKeys
 }
 
 val defaultToolbarPref by lazy {
     val default = when (helium314.keyboard.latin.BuildConfig.FLAVOR) {
         "offline" -> listOf(SETTINGS, VOICE, CLIPBOARD, UNDO, INCOGNITO, COPY, PASTE, PROOFREAD, TRANSLATE)
         "offlinelite" -> listOf(SETTINGS, VOICE, CLIPBOARD, UNDO, INCOGNITO, COPY, PASTE)
-        else -> listOf(SETTINGS, VOICE, CLIPBOARD, CUSTOM_AI_1, CUSTOM_AI_2, CUSTOM_AI_3, UNDO, PROOFREAD, TRANSLATE, INCOGNITO, TOUCHPAD, FLOATING, NUMPAD, COPY, PASTE, SELECT_ALL)
+        else -> listOf(SETTINGS, VOICE, CLIPBOARD, CUSTOM_AI_1, CUSTOM_AI_2, CUSTOM_AI_3, UNDO, PROOFREAD, TRANSLATE, INCOGNITO, TOUCHPAD, FLOATING, VOICE_TRANSCRIBE, NUMPAD, COPY, PASTE, SELECT_ALL)
     }
-        
+
     val others = entries.filterNot { it in default || it in excludedKeys }
     default.joinToString(Separators.ENTRY) { it.name + Separators.KV + true } + Separators.ENTRY +
             others.joinToString(Separators.ENTRY) { it.name + Separators.KV + false }
