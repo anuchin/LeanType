@@ -11,6 +11,7 @@ app/.cxx/
 app/.attach_*/
 tools/make-emoji-keys/build/
 tools/make-emoji-keys/bin/
+dist/
 
 # OS Specific
 .DS_Store

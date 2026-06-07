@@ -37,6 +37,7 @@ public final class InputAttributes {
     final public boolean mApplicationSpecifiedCompletionOn;
     final public boolean mShouldInsertSpacesAutomatically;
     final public boolean mShouldShowVoiceInputKey;
+    final public boolean mShouldShowVoiceTranscribeKey;
     final public boolean mNoLearning;
     /**
      * Whether the floating gesture preview should be disabled. If true, this should override the
@@ -79,6 +80,7 @@ public final class InputAttributes {
             mApplicationSpecifiedCompletionOn = false;
             mShouldInsertSpacesAutomatically = false;
             mShouldShowVoiceInputKey = false;
+            mShouldShowVoiceTranscribeKey = false;
             mDisableGestureFloatingPreviewText = false;
             mIsGeneralTextInput = false;
             mNoLearning = false;
@@ -104,6 +106,7 @@ public final class InputAttributes {
                 || !RichInputMethodManager.isInitialized() // avoid crash when only using spell checker
                 || !RichInputMethodManager.getInstance().isShortcutImeReady();
         mShouldShowVoiceInputKey = !noMicrophone;
+        mShouldShowVoiceTranscribeKey = !noMicrophone;
 
         mDisableGestureFloatingPreviewText = InputAttributes.inPrivateImeOptions(
                 mPackageNameForPrivateImeOptions, NO_FLOATING_GESTURE_PREVIEW, editorInfo);

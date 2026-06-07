@@ -540,6 +540,20 @@ fun createAdvancedSettings(context: Context) = listOfNotNull(
             onClick = { SettingsDestination.navigateTo(SettingsDestination.CustomAIKeys) }
         ) { NextScreenIcon() }
     } else null,
+    if (BuildConfig.FLAVOR == "standard") Setting(context, SettingsWithoutKey.VOICE_SETTINGS, R.string.voice_settings_title, R.string.voice_settings_summary) {
+        Preference(
+            name = it.title,
+            description = it.description,
+            onClick = { SettingsDestination.navigateTo(SettingsDestination.VoiceSettings) }
+        ) { NextScreenIcon() }
+    } else null,
+    if (BuildConfig.FLAVOR == "standard") Setting(context, SettingsWithoutKey.VOICE_PROVIDERS, R.string.voice_providers_title, R.string.voice_providers_summary) {
+        Preference(
+            name = it.title,
+            description = it.description,
+            onClick = { SettingsDestination.navigateTo(SettingsDestination.VoiceProviders) }
+        ) { NextScreenIcon() }
+    } else null,
     if (BuildConfig.FLAVOR == "offline") Setting(context, SettingsWithoutKey.OFFLINE_KEEP_MODEL_LOADED, R.string.offline_keep_model_loaded_title, R.string.offline_keep_model_loaded_summary) {
         SwitchPreference(it, Defaults.PREF_OFFLINE_KEEP_MODEL_LOADED)
     } else null,

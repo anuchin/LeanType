@@ -50,6 +50,8 @@ private fun StandardAIIntegrationScreen(onClickBack: () -> Unit) {
     val currentProvider by providerState.collectAsState()
 
     val items = buildList {
+        add(SettingsWithoutKey.VOICE_SETTINGS)
+        add(SettingsWithoutKey.VOICE_PROVIDERS)
         // Always show provider selection
         add(SettingsWithoutKey.AI_PROVIDER)
         // Custom AI Keys are only shown in the standard flavor (guaranteed by caller)

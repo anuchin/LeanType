@@ -557,6 +557,31 @@ class ProofreadService(private val context: Context) {
         return huggingFaceRequest(prompt, showThinking = false, isTranslate = true)
     }
 
+    suspend fun reformat(
+        text: String,
+        tone: helium314.keyboard.latin.voice.ReformatTone,
+    ): Result<String> {
+        if (tone == helium314.keyboard.latin.voice.ReformatTone.NONE) {
+            return Result.success(text)
+        }
+        val prompt = when (tone) {
+            helium314.keyboard.latin.voice.ReformatTone.CASUAL ->
+                "Rewrite the following dictated text in a casual, conversational tone. Fix punctuation. Keep the original meaning. Return ONLY the rewritten text. Text: "
+            helium314.keyboard.latin.voice.ReformatTone.FORMAL ->
+                "Rewrite the following dictated text in a formal, polished tone. Fix punctuation. Keep the original meaning. Return ONLY the rewritten text. Text: "
+            helium314.keyboard.latin.voice.ReformatTone.PROFESSIONAL ->
+                "Rewrite the following dictated text in a professional, business-appropriate tone. Fix punctuation. Keep the original meaning. Return ONLY the rewritten text. Text: "
+            helium314.keyboard.latin.voice.ReformatTone.FRIENDLY ->
+                "Rewrite the following dictated text in a warm, friendly tone. Fix punctuation. Keep the original meaning. Return ONLY the rewritten text. Text: "
+            helium314.keyboard.latin.voice.ReformatTone.CONCISE ->
+                "Rewrite the following dictated text more concisely, removing filler words and repetitions. Keep the original meaning. Return ONLY the rewritten text. Text: "
+            helium314.keyboard.latin.voice.ReformatTone.EXPAND ->
+                "Expand the following dictated text with more detail and clarity. Fix punctuation. Keep the original meaning. Return ONLY the rewritten text. Text: "
+            helium314.keyboard.latin.voice.ReformatTone.NONE -> return Result.success(text)
+        }
+        return proofread(text, overridePrompt = prompt)
+    }
+
     class ProofreadException(message: String) : Exception(message)
     class TranslateException(message: String) : Exception(message)
 

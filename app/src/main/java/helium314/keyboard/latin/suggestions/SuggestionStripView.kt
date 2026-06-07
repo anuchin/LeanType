@@ -750,6 +750,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         val show = Settings.getValues().mShowsVoiceInputKey
         toolbar.findViewWithTag<View>(ToolbarKey.VOICE)?.isVisible = show
         pinnedKeys.findViewWithTag<View>(ToolbarKey.VOICE)?.isVisible = show
+        val showTranscribe = Settings.getValues().mShowsVoiceTranscribeKey
+                && BuildConfig.FLAVOR == "standard"
+        toolbar.findViewWithTag<View>(ToolbarKey.VOICE_TRANSCRIBE)?.isVisible = showTranscribe
+        pinnedKeys.findViewWithTag<View>(ToolbarKey.VOICE_TRANSCRIBE)?.isVisible = showTranscribe
     }
 
     fun showTranslateLanguageSelector() {

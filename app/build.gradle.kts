@@ -209,6 +209,12 @@ dependencies {
     // ONNX Runtime for T5 encoder-decoder grammar models
     "offlineImplementation"("com.microsoft.onnxruntime:onnxruntime-android:1.17.3")
 
+    // voice transcription
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    "standardImplementation"("androidx.dynamicanimation:dynamicanimation:1.0.0")
+    "standardImplementation"("androidx.activity:activity-ktx:1.10.0")
+    implementation("com.google.android.material:material:1.13.0")
+
     // test
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
